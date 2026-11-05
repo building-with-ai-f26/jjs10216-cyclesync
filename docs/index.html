@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>[Your Product Name] · Building with AI (Fall 2026)</title>
+  <title>CycleSync · Building with AI (Fall 2026)</title>
 
   <!-- Week 1: create your PostHog account only.
        Build 2: paste your project's current PostHog web snippet here,
@@ -144,8 +144,8 @@
     <!-- HERO / PRODUCT PITCH -->
     <header>
       <span class="eyebrow">NYU Stern · Building with AI · Fall 2026</span>
-      <h1>[Your Product Name]</h1>
-      <p class="tagline">[One clear sentence: Who is this for, and what painful job does it do for them?]</p>
+      <h1>CycleSync</h1>
+      <p class="tagline">A 20-second morning check-in that tells active women whether to keep, adjust, swap, or rest today's planned workout, based on how they actually feel and where they are in their cycle.</p>
       <div class="cta-row">
         <a class="btn" href="#live-demo" onclick="window.posthog && posthog.capture('clicked_try_product')">See the Product →</a>
         <a class="btn btn-secondary" href="#prd">Read the Living PRD</a>
@@ -157,11 +157,8 @@
     <section id="live-demo">
       <h2>Product Showcase (Prototype / Live App / 2-Min Video)</h2>
       <p>
-        <strong>Current Status:</strong> [Build 1: local prototype / Builds 2–4: local app / Build 5: cloud app]<br />
-        <strong>Demo:</strong> [Add a screenshot or GIF now; add the live cloud app URL in Build 5.]
-      </p>
-      <p class="meta">
-        Ask your coding agent to embed a screenshot or GIF of your local prototype for Build 1. Keep this evidence current, then add your cloud app link and two-minute video in Build 5.
+        <strong>Current Status:</strong> Build 1: prototype as an iOS Shortcut, running on my phone. Runs locally / on my phone through Week 4; cloud URL added later.<br />
+        <strong>Demo:</strong> [TODO: add prototype screenshot or GIF]
       </p>
     </section>
 
@@ -171,31 +168,38 @@
       <p class="meta">Updated every week as we test with real users and learn what works.</p>
 
       <h3>1. Target User & The Job to Be Done</h3>
-      <p><strong>Who is this for?</strong> [Name a specific, reachable person or role you have direct access to.]</p>
-      <p><strong>The painful "Before" workflow:</strong> [How do they do this today, and why is it slow, manual, or broken?]</p>
-      <p><strong>The "After" workflow with this product:</strong> [What does your tool do for them in one sitting?]</p>
+      <p><strong>Who is this for?</strong> A woman in her 20s or 30s who works out 3–5 times a week, tracks her cycle, and plans her workouts ahead. First users: me, plus a few friends who match this profile.</p>
+      <p><strong>The painful "Before" workflow:</strong> She checks her period tracker, notices low energy or cramps, and makes a gut call about whether to push through, scale back, or skip her planned workout. Nothing connects how she feels to what she planned.</p>
+      <p><strong>The "After" workflow with this product:</strong> She gets a notification-style check-in each morning. She taps her energy (1–5), symptoms (cramps, bloating, headache, fatigue, heavy flow, none), sleep (good / ok / poor), and soreness, then confirms today's planned workout. She gets one recommendation (<strong>Keep / Adjust / Swap / Rest</strong>) with a specific workout and a one-line reason, then taps <em>Do this</em>, <em>Do my original plan</em>, <em>Something else</em>, or <em>Rest</em>.</p>
+      <p><strong>Adjust goes both ways:</strong> On low days the workout gets easier. On high-energy days she gets encouragement and a small optional add-on, but never when sleep is poor, soreness is high, or symptoms are significant.</p>
 
       <h3>2. Scope & Explicit Non-Goals</h3>
       <ul>
-        <li><strong>In Scope (Core Workflow):</strong> [The 1 main workflow this product does reliably]</li>
-        <li><strong>Out of Scope #1:</strong> [Feature you are deliberately NOT building in 6 weeks]</li>
-        <li><strong>Out of Scope #2:</strong> [Feature you are deliberately NOT building in 6 weeks]</li>
-        <li><strong>Out of Scope #3:</strong> [Feature you are deliberately NOT building in 6 weeks]</li>
+        <li><strong>In Scope (Core Workflow):</strong> Morning check-in → one recommendation with a reason → she accepts, modifies, or skips → her response is saved to personalize future suggestions.</li>
+        <li><strong>Out of Scope #1:</strong> Full training programs or meal plans (nutrition is a possible later add-on).</li>
+        <li><strong>Out of Scope #2:</strong> Wearable or Apple Health integrations.</li>
+        <li><strong>Out of Scope #3:</strong> Medical diagnosis, treatment, or cycle prediction. If she reports severe pain or very heavy flow, CycleSync suggests talking to a doctor instead of giving workout advice.</li>
       </ul>
+      <p><strong>Product principles:</strong> Recommendations are based on how she says she feels, with cycle day as context rather than strict cycle-phase rules. CycleSync collects minimal health data, uses anonymous IDs, and masks health fields in analytics.</p>
 
       <h3>3. How It Works Under the Hood & Riskiest Assumption (Week 2+)</h3>
-      <p><strong>Riskiest Assumption:</strong> [What is the #1 technical or user risk that could sink this product?]</p>
-      <p><strong>Simple Architecture:</strong> [User Input] → [Your App / Server] → [AI Model / Tool] → [Output]</p>
+      <p><strong>Riskiest Assumption:</strong> That women will keep doing a daily check-in after the first week.</p>
+      <p><strong>Simple Architecture:</strong></p>
+      <ul>
+        <li><strong>v1 / Build 1:</strong> [Morning check-in in an iOS Shortcut, with no app download] → [Simple if/then rules inside the Shortcut] → [Keep / Adjust / Swap / Rest + one-line reason]. The iOS Shortcut approach follows Prof. Grewell's suggestion.</li>
+        <li><strong>Build 2:</strong> [iOS Shortcut check-in] → [Backend hosted on Vercel] → [AI recommendation] → [Recommendation + stored history]</li>
+        <li><strong>Possible v2:</strong> A TestFlight app with actionable notifications, if usage justifies it.</li>
+      </ul>
 
       <h3>4. Unit Economics & Analytics Snapshot (Updated Weekly)</h3>
       <div class="grid-2">
         <div class="stat-box">
           <div class="stat-label">Cumulative Build Spend</div>
-          <div class="stat-value">[Record actual spend]</div>
+          <div class="stat-value">$0</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Est. Cost Per User Run</div>
-          <div class="stat-value">[Not yet estimated]</div>
+          <div class="stat-value">[TODO]</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">User Evidence (Analytics from Build 2)</div>
@@ -216,10 +220,10 @@
       <div class="log-entry">
         <h3>Build 1 · Intent.md & Throwaway Prototype (Due Nov 9)</h3>
         <ul>
-          <li><strong>What shipped:</strong> [What you actually built; link your local prototype screenshot or GIF above.]</li>
-          <li><strong>Things learned with AI:</strong> [What you learned from AI practice and Terminus Episodes 1 and 2.]</li>
-          <li><strong>What broke / changed in PRD:</strong> [Fill in]</li>
-          <li><strong>Cost & time this week:</strong> $[0.00] · [0] hours</li>
+          <li><strong>What shipped:</strong> Set up Git, GitHub CLI, Node.js, and Claude Code on an Intel Mac. Created this repo from the template and turned on GitHub Pages. Wrote PRD v1. Prototype screenshot: [TODO]</li>
+          <li><strong>Things learned with AI:</strong> [TODO]</li>
+          <li><strong>What broke / changed in PRD:</strong> Three setup problems, all fixed: Homebrew isn't supported on Intel Macs, so I installed GitHub CLI with the <code>gh</code> .pkg installer instead. Installing Claude Code with npm gave a permission error, so I used the native installer. I also had to set up my PATH. PRD changes: [TODO]</li>
+          <li><strong>Cost & time this week:</strong> $0 (Claude Pro subscription already owned) · [TODO] hours</li>
         </ul>
       </div>
 

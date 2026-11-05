@@ -1,11 +1,11 @@
-# [Project Name]
+# CycleSync
 
-> **One-line pitch:** [Who is this for, and what job does it do for them?]
+> **One-line pitch:** A 20-second morning check-in that tells active women whether to keep, adjust, swap, or rest today's planned workout, based on how they actually feel and where they are in their cycle.
 
-- **Builder:** [Your Name] (`@github-handle`)
-- **Pod:** [Pod Name / Number]
-- **Product Page & Living PRD:** [Add your GitHub Pages URL]
-- **App:** runs locally through Week 4; add a cloud URL in Build 5.
+- **Builder:** Julia Simon (`juliasimon16`)
+- **Pod:** TODO
+- **Product Page & Living PRD:** https://building-with-ai-f26.github.io/jjs10216-cyclesync/
+- **App:** runs locally / on my phone through Week 4; cloud URL added later.
 
 ## Start here: Build 1
 
