@@ -157,9 +157,12 @@
     <section id="live-demo">
       <h2>Product Showcase (Prototype / Live App / 2-Min Video)</h2>
       <p>
-        <strong>Current Status:</strong> Build 1: iOS Shortcut prototype in progress.<br />
-        <strong>Demo:</strong> [TODO: add prototype screenshot or GIF]
+        <strong>Current Status:</strong> Build 1: working iOS Shortcut prototype (runs on my Mac and syncs to my iPhone).<br />
+        <strong>Demo:</strong> Screen recording of the Build 1 Shortcut prototype:
       </p>
+      <video src="assets/cyclesync-build1-demo.mp4" controls muted playsinline preload="metadata" style="width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px;">
+        Your browser can't play this video. <a href="assets/cyclesync-build1-demo.mp4">Download the demo recording</a>.
+      </video>
     </section>
 
     <!-- LIVING PRD (Updated every week!) -->
@@ -220,10 +223,10 @@
       <div class="log-entry">
         <h3>Build 1 · Intent.md & Throwaway Prototype (Due Nov 9)</h3>
         <ul>
-          <li><strong>What shipped:</strong> Set up Git, GitHub CLI, Node.js, and Claude Code on an Intel Mac. Created this repo from the template and turned on GitHub Pages. Wrote PRD v1. Prototype screenshot: [TODO]</li>
-          <li><strong>Things learned with AI:</strong> [TODO]</li>
-          <li><strong>What broke / changed in PRD:</strong> Three setup problems, all fixed: Homebrew isn't supported on Intel Macs, so I installed GitHub CLI with the <code>gh</code> .pkg installer instead. Installing Claude Code with npm gave a permission error, so I used the native installer. I also had to set up my PATH. PRD changes: [TODO]</li>
-          <li><strong>Cost & time this week:</strong> $0 (Claude Pro subscription already owned) · [TODO] hours</li>
+          <li><strong>What shipped:</strong> A working CycleSync Shortcut (demo recording above). It asks four tap-only questions (workout, energy, sleep, symptoms) and shows one recommendation. Rules: the default is KEEP; high energy gives KEEP with encouragement; low energy gives ADJUST; heavy flow gives REST and suggests seeing a doctor if bleeding or pain feels unusual or severe. Later rules override earlier ones, so the safety rule always wins. Also set up Git, GitHub CLI, Node.js, and Claude Code on an Intel Mac, created this repo from the template, turned on GitHub Pages, and wrote PRD v1.</li>
+          <li><strong>Things learned with AI:</strong> What the terminal, Git, and GitHub are and how they differ; how PATH works when a command isn't found; how Shortcuts variables and If blocks work, including that rule order matters.</li>
+          <li><strong>What broke / changed in PRD:</strong> Shortcuts kept auto-connecting If blocks to the wrong variable, so I added a Get Variable action before each If. During setup, Homebrew isn't supported on Intel Macs, so I installed GitHub CLI with the <code>gh</code> .pkg installer instead. Installing Claude Code with npm gave a permission error, so I used the native installer. I also had to set up my PATH. PRD changes for this prototype: energy is Low / Ok / High instead of 1–5, soreness isn't asked yet, and the poor-sleep and cramps rules are planned for Build 2.</li>
+          <li><strong>Cost & time this week:</strong> $0 (Claude Pro subscription already owned) · 1–2 hours</li>
         </ul>
       </div>
 
