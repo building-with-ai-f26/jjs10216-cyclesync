@@ -28,3 +28,6 @@ build/
 out/
 .DS_Store
 *.log
+
+# Local app data (contains health data — never commit)
+data/
