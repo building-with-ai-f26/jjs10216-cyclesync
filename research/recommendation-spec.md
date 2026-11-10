@@ -22,11 +22,13 @@ How CycleSync turns a morning check-in into one workout recommendation. Grounded
 - Sleep: good / OK / poor
 - Symptoms (multi): none, cramps, bloating, headache, fatigue, heavy flow
 - Soreness (optional): none / some / a lot
-- **If "heavy flow" is selected, ask follow-ups** (needed for the safety screen):
+- **If "heavy flow" is selected, ask follow-ups** (needed for the safety screen) on **one tap-all-that-apply screen**: "Thanks for telling me. Is any of this happening?"
   - Soaking a pad or tampon every hour for more than 2 hours?
   - Bleeding for more than 7 days?
   - Clots larger than a quarter?
   - Feeling dizzy, short of breath, or unusually exhausted?
+  - None of these
+  - At least one option must be ticked ("None of these" counts, and it can't be combined with the others). Each ticked sign is a "yes" and each unticked sign a "no", so the safety screen still gets four yes/no answers. A screen with nothing ticked is unanswered and the check-in is rejected.
 - **If "cramps" is selected, ask:** Is the pain severe and not easing?
 
 ## 3. Safety screen (code, overrides everything)
