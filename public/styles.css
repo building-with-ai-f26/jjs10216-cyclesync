@@ -3,8 +3,10 @@
   --card: #ffffff;
   --text: #111827;
   --muted: #4b5563;
-  --border: #e5e7eb;
+  --border: #d1d5db;
   --accent: #1d63dc;
+  --accent-soft: #eff6ff;
+  --error: #b91c1c;
 }
 
 * { box-sizing: border-box; }
@@ -20,7 +22,91 @@ body {
 .app {
   max-width: 480px;
   margin: 0 auto;
-  padding: 32px 16px 64px;
+  padding: 20px 16px 64px;
 }
 
-.muted { color: var(--muted); }
+.app-header { margin-bottom: 20px; }
+.brand { font-weight: 700; color: var(--accent); letter-spacing: -0.01em; }
+
+h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.02em; }
+.muted { color: var(--muted); margin: 0 0 20px; }
+
+/* Questions */
+.field {
+  border: 0;
+  padding: 0;
+  margin: 0 0 22px;
+  min-width: 0;
+}
+.q { display: block; font-weight: 600; margin-bottom: 8px; padding: 0; }
+.hint { font-size: 14px; color: var(--muted); margin: -4px 0 8px; }
+
+input[type="date"],
+input[type="number"] {
+  font: inherit;
+  font-size: 16px; /* 16px stops iPhone Safari from zooming in */
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  min-height: 44px;
+}
+input[type="number"] { width: 6em; }
+
+/* Tap-to-choose chips (real radio buttons / checkboxes underneath) */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { position: relative; }
+.chip input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.chip span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  user-select: none;
+}
+.chip input:checked + span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.chip input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Buttons */
+.btn {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn-secondary {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.error {
+  color: var(--error);
+  font-weight: 600;
+  margin: 0 0 12px;
+}

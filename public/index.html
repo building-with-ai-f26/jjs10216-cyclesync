@@ -8,8 +8,90 @@
 </head>
 <body>
   <main class="app">
-    <h1>Hello CycleSync</h1>
-    <p id="server-status" class="muted">Checking the server…</p>
+    <header class="app-header">
+      <span class="brand">CycleSync</span>
+    </header>
+
+    <p id="loading" class="muted">Loading…</p>
+
+    <!-- ONBOARDING (once). "ph-no-capture" hides health answers from PostHog replays and click tracking. -->
+    <section id="screen-onboarding" hidden>
+      <h1>Let's set you up</h1>
+      <p class="muted">A few questions, once. Your answers stay anonymous.</p>
+
+      <form id="onboarding-form" class="ph-no-capture" novalidate>
+        <div class="field">
+          <label for="lastPeriodStart" class="q">When did your last period start?</label>
+          <input type="date" id="lastPeriodStart" name="lastPeriodStart" required />
+        </div>
+
+        <div class="field">
+          <label for="cycleLength" class="q">Typical cycle length (days)</label>
+          <p class="hint">Not sure? Leave it at 28.</p>
+          <input type="number" id="cycleLength" name="cycleLength" value="28" min="15" max="60" inputmode="numeric" required />
+        </div>
+
+        <fieldset class="field">
+          <legend class="q">Do you use hormonal contraception?</legend>
+          <div class="chips">
+            <label class="chip"><input type="radio" name="contraception" value="yes" /><span>Yes</span></label>
+            <label class="chip"><input type="radio" name="contraception" value="no" /><span>No</span></label>
+            <label class="chip"><input type="radio" name="contraception" value="prefer_not_to_say" /><span>Prefer not to say</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend class="q">Is your energy usually lower in the days before your period?</legend>
+          <div class="chips">
+            <label class="chip"><input type="radio" name="energyLowerBeforePeriod" value="yes" /><span>Yes</span></label>
+            <label class="chip"><input type="radio" name="energyLowerBeforePeriod" value="sometimes" /><span>Sometimes</span></label>
+            <label class="chip"><input type="radio" name="energyLowerBeforePeriod" value="no" /><span>No</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend class="q">Do cramps usually affect your workouts?</legend>
+          <div class="chips">
+            <label class="chip"><input type="radio" name="crampsAffectWorkouts" value="yes" /><span>Yes</span></label>
+            <label class="chip"><input type="radio" name="crampsAffectWorkouts" value="sometimes" /><span>Sometimes</span></label>
+            <label class="chip"><input type="radio" name="crampsAffectWorkouts" value="no" /><span>No</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend class="q">Which days do you usually work out?</legend>
+          <div class="chips">
+            <label class="chip"><input type="checkbox" name="workoutDays" value="mon" /><span>Mon</span></label>
+            <label class="chip"><input type="checkbox" name="workoutDays" value="tue" /><span>Tue</span></label>
+            <label class="chip"><input type="checkbox" name="workoutDays" value="wed" /><span>Wed</span></label>
+            <label class="chip"><input type="checkbox" name="workoutDays" value="thu" /><span>Thu</span></label>
+            <label class="chip"><input type="checkbox" name="workoutDays" value="fri" /><span>Fri</span></label>
+            <label class="chip"><input type="checkbox" name="workoutDays" value="sat" /><span>Sat</span></label>
+            <label class="chip"><input type="checkbox" name="workoutDays" value="sun" /><span>Sun</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend class="q">What's your main goal?</legend>
+          <div class="chips">
+            <label class="chip"><input type="radio" name="goal" value="stay_consistent" /><span>Stay consistent</span></label>
+            <label class="chip"><input type="radio" name="goal" value="build_strength" /><span>Build strength</span></label>
+            <label class="chip"><input type="radio" name="goal" value="train_for_event" /><span>Train for a race or event</span></label>
+            <label class="chip"><input type="radio" name="goal" value="feel_good" /><span>Feel good day to day</span></label>
+          </div>
+        </fieldset>
+
+        <p id="onboarding-error" class="error" role="alert" hidden></p>
+        <button type="submit" class="btn">Save and continue</button>
+      </form>
+    </section>
+
+    <!-- HOME (placeholder until the check-in screen is built) -->
+    <section id="screen-home" hidden>
+      <h1>You're set up</h1>
+      <p class="muted">The morning check-in comes next.</p>
+      <button type="button" id="edit-setup" class="btn btn-secondary">Edit my setup</button>
+    </section>
   </main>
   <script src="app.js"></script>
 </body>
