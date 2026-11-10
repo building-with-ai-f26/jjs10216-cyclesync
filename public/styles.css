@@ -11,6 +11,11 @@
 
 * { box-sizing: border-box; }
 
+/* Anything marked "hidden" stays hidden, even if another rule (like
+   display: flex) would show it. Without this, the "Set today as day 1?"
+   prompt appeared on its own. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
