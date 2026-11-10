@@ -30,6 +30,17 @@ test('saves a profile and reads it back', async () => {
   assert.ok(JSON.parse(readFileSync(file, 'utf8')).profiles[userId]);
 });
 
+test('"My period started" updates only the period date', async () => {
+  await db.updatePeriodStart(userId, '2026-11-10');
+  const saved = await db.getProfile(userId);
+  assert.equal(saved.lastPeriodStart, '2026-11-10');
+  assert.ok(saved.cycleLength);
+});
+
+test('"My period started" does nothing for someone who has not onboarded', async () => {
+  assert.equal(await db.updatePeriodStart('00000000-0000-4000-8000-000000000000', '2026-11-10'), null);
+});
+
 test('editing keeps the original created date', async () => {
   const first = await db.getProfile(userId);
   await db.saveProfile(userId, { cycleLength: 30 });

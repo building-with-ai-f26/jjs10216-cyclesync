@@ -105,6 +105,50 @@ input[type="number"] { width: 6em; }
   border: 1px solid var(--border);
 }
 
+.btn-small {
+  display: inline-block;
+  width: auto;
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 15px;
+}
+
+.link-btn {
+  display: block;
+  margin: 24px auto 0;
+  padding: 10px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.optional { font-weight: 400; color: var(--muted); }
+
+.inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* "My period started" */
+.period-box { margin: 0 0 24px; }
+.period-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.period-confirm span { font-weight: 600; margin-right: 4px; }
+.period-box .hint { margin: 8px 0 0; }
+
+/* Follow-up questions (heavy flow, cramps) */
+.followup {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 14px 2px;
+  margin: -8px 0 22px;
+}
+.followup-title { font-weight: 700; margin: 0 0 12px; }
+
 .error {
   color: var(--error);
   font-weight: 600;
