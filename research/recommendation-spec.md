@@ -43,10 +43,11 @@ Message copy is fixed in code (not AI-written) so it can be reviewed by a profes
 ## 4. Cycle context
 
 - Cycle day = days since last period start + 1.
-- Estimated phase: menstrual (day 1 to period end, assume 5 days until logged), follicular (period end to ovulation), ovulatory (about 14 days before the next expected period, plus or minus 1 day), luteal (after ovulation until the next period).
+- Estimated phase, three labels only: menstrual (day 1 to period end, assume 5 days until logged), follicular (period end through the estimated ovulation day, which is typical cycle length minus 14), luteal (the day after that until the next period). There is no "ovulatory" label; those days fold into follicular and luteal.
 - Display: "Day 22 · est. luteal" with an info icon: "Estimated from your last period and typical cycle length." Plus one plain line explaining the phase.
-- **Hormonal contraception = yes:** show cycle day only, no phase label, and do not send a phase to the AI.
-- Never show fertility or ovulation-window predictions.
+- **Hormonal contraception = yes or "prefer not to say":** show cycle day only, no phase label, and do not send a phase to the AI.
+- **Late period** (cycle day is past her typical cycle length and no new period logged): show cycle day only, no phase label, do not send a phase to the AI, and show a "My period started" button.
+- Never show fertility or ovulation-window predictions, and never display or send the word "ovulation".
 
 ## 5. AI instructions (the core of the system prompt)
 
