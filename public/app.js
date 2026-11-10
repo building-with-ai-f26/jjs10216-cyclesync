@@ -153,6 +153,7 @@ async function loadContext() {
 function renderContext() {
   const now = new Date();
   $('greeting').textContent = greeting(now.getHours());
+  $('cycle-message').hidden = true;
 
   // "Tuesday · Day 4 · est. menstrual"
   const weekday = WEEKDAYS[now.getDay()];
@@ -180,34 +181,43 @@ $('info-toggle').addEventListener('click', () => {
   $('info-toggle').setAttribute('aria-expanded', String(open));
 });
 
-// ---------- "My period started" ----------
-// A small link at the bottom; moved to the top and made prominent when due or late.
-function renderPeriodBox() {
-  const box = $('period-box');
-  const prominent = cycle.periodDue || cycle.periodLate;
-  box.classList.toggle('prominent', prominent);
-  $(prominent ? 'period-slot-top' : 'period-slot-bottom').appendChild(box);
+// ---------- Saving a new period start ----------
+// Used by "Has your period started?" and "Update my cycle". Refreshes the
+// header (cycle day, phase) without losing check-in answers she's already given.
+async function savePeriodStart(date) {
+  const { ok, data } = await api('/api/period', {
+    method: 'POST',
+    body: JSON.stringify({ userId, date }),
+  });
+  if (!ok) {
+    const err = new Error(data.error || 'Could not save. Please try again.');
+    err.fromServer = true;
+    throw err;
+  }
+  if ((await loadContext()) === 'ok') {
+    renderContext();
+    renderStep();
+  }
+  $('cycle-message').textContent = `Saved. Today is day ${cycle.cycleDay}.`;
+  $('cycle-message').hidden = false;
+}
 
-  $('period-prompt').hidden = !prominent;
+// ---------- "Has your period started?" ----------
+// Only shown when her period is due or late. Never during her period.
+function renderPeriodBox() {
+  $('period-box').hidden = !(cycle.periodDue || cycle.periodLate);
   $('period-prompt').textContent = cycle.periodLate
     ? 'Your period might be late. Has it started?'
     : 'Your period may be due. Has it started?';
-  $('period-start').textContent = prominent ? 'Yes, it started today' : 'My period started today';
-
   $('period-confirm').hidden = true;
   $('period-start').hidden = false;
-}
-
-function showPeriodMessage(text) {
-  $('period-message').textContent = text;
-  $('period-message').hidden = false;
+  $('period-error').hidden = true;
 }
 
 $('period-start').addEventListener('click', () => {
   $('period-confirm-text').textContent = `You're on day ${cycle.cycleDay}. Start a new cycle from today?`;
   $('period-start').hidden = true;
   $('period-confirm').hidden = false;
-  $('period-message').hidden = true;
 });
 
 $('period-cancel').addEventListener('click', () => {
@@ -216,22 +226,51 @@ $('period-cancel').addEventListener('click', () => {
 });
 
 $('period-yes').addEventListener('click', async () => {
-  $('period-confirm').hidden = true;
-  $('period-start').hidden = false;
   try {
-    const { ok, data } = await api('/api/period', {
-      method: 'POST',
-      body: JSON.stringify({ userId, date: todayLocal() }),
-    });
-    if (!ok) return showPeriodMessage(data.error || 'Could not save. Please try again.');
-    // Refresh the header (day 1, phase) without losing answers she's already given.
-    if ((await loadContext()) === 'ok') {
-      renderContext();
-      renderStep();
-    }
-    showPeriodMessage('Saved. Today is day 1.');
-  } catch {
-    showPeriodMessage('Could not reach the server. Is it running?');
+    await savePeriodStart(todayLocal());
+  } catch (err) {
+    $('period-error').textContent = err.fromServer ? err.message : 'Could not reach the server. Is it running?';
+    $('period-error').hidden = false;
+  }
+});
+
+// ---------- "Update my cycle" ----------
+// Log a period that came early, or correct the last start date.
+function friendlyDate(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+$('update-cycle').addEventListener('click', () => {
+  $('cycle-summary').textContent =
+    `Your last period started ${friendlyDate(profile.lastPeriodStart)}, so today is day ${cycle.cycleDay}.`;
+  $('cycleStart').value = profile.lastPeriodStart;
+  $('cycleStart').max = todayLocal();
+  $('cycle-error').hidden = true;
+  showScreen('cycle');
+});
+
+$('cycle-today').addEventListener('click', () => {
+  $('cycleStart').value = todayLocal();
+});
+
+$('cycle-cancel').addEventListener('click', () => showScreen('checkin'));
+
+$('cycle-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = $('cycle-form').querySelector('button[type="submit"]');
+  $('cycle-error').hidden = true;
+  button.disabled = true;
+  try {
+    await savePeriodStart($('cycleStart').value);
+    showScreen('checkin');
+  } catch (err) {
+    $('cycle-error').textContent = err.fromServer
+      ? 'Please pick a date within the past year, not in the future.'
+      : 'Could not reach the server. Is it running?';
+    $('cycle-error').hidden = false;
+  } finally {
+    button.disabled = false;
   }
 });
 
@@ -266,7 +305,7 @@ function stepList() {
   steps.push('energy', 'sleep', 'symptoms');
 
   const symptoms = checkedValues(f, 'symptoms');
-  if (symptoms.includes('heavy_flow')) steps.push('soakingHourly', 'over7Days', 'largeClots', 'dizzyOrBreathless');
+  if (symptoms.includes('heavy_flow')) steps.push('heavyFlow');
   // Cramps picked here (and not already asked about up front): ask about severity now.
   if (symptoms.includes('cramps') && !steps.includes('severePain')) steps.push('severePain');
 
@@ -289,10 +328,7 @@ function isAnswered(step) {
     case 'energy': return radioValue(f, 'energy') !== null;
     case 'sleep': return radioValue(f, 'sleep') !== null;
     case 'symptoms': return checkedValues(f, 'symptoms').length > 0;
-    case 'soakingHourly':
-    case 'over7Days':
-    case 'largeClots':
-    case 'dizzyOrBreathless': return radioValue(f, step) !== null;
+    case 'heavyFlow': return checkedValues(f, 'heavyFlowSigns').length > 0;
     default: return true;
   }
 }
@@ -360,8 +396,9 @@ checkinForm.addEventListener('change', (event) => {
     if (value === 'yes') checkinForm.querySelector('input[name="symptoms"][value="none"]').checked = false;
   }
 
-  if (name === 'symptoms' && checked) {
-    for (const box of checkinForm.querySelectorAll('input[name="symptoms"]')) {
+  // "Nothing, I feel good" / "None of these" can't be picked with anything else.
+  if ((name === 'symptoms' || name === 'heavyFlowSigns') && checked) {
+    for (const box of checkinForm.querySelectorAll(`input[name="${name}"]`)) {
       if (value === 'none' ? box.value !== 'none' : box.value === 'none') box.checked = false;
     }
   }
@@ -376,7 +413,8 @@ checkinForm.addEventListener('input', (event) => {
 // Auto-advance: tapping an answer moves to the next question after a short
 // pause (so she sees her choice). Tapping the same answer again also advances,
 // which matters after using the back arrow.
-// Not on: symptoms (pick several, then Next), unless "Nothing, I feel good";
+// Not on: symptoms and heavy-flow signs (pick several, then Next), unless
+// "Nothing, I feel good" / "None of these";
 // run distance (type a number); soreness (last question, has its own button).
 checkinForm.addEventListener('click', (event) => {
   const input = event.target;
@@ -387,7 +425,7 @@ checkinForm.addEventListener('click', (event) => {
   let advance = false;
   if (input.type === 'radio' && step !== 'runAmount') advance = true;
   if (step === 'runAmount' && input.name === 'runUnit') advance = isAnswered('runAmount');
-  if (step === 'symptoms') advance = input.value === 'none' && input.checked;
+  if (step === 'symptoms' || step === 'heavyFlow') advance = input.value === 'none' && input.checked;
 
   if (advance) {
     clearTimeout(advanceTimer);
@@ -402,6 +440,15 @@ $('runAmount').addEventListener('keydown', (event) => {
     if (isAnswered('runAmount')) goNext();
   }
 });
+
+// The one "Is any of this happening?" screen → the same four yes/no answers
+// the safety screen expects. Ticked = true, not ticked = false.
+// Nothing ticked at all = unanswered (null), which the server rejects.
+const HEAVY_FLOW_QUESTIONS = ['soakingHourly', 'over7Days', 'largeClots', 'dizzyOrBreathless'];
+function heavyFlowAnswers(ticked) {
+  const answered = ticked.length > 0;
+  return Object.fromEntries(HEAVY_FLOW_QUESTIONS.map((q) => [q, answered ? ticked.includes(q) : null]));
+}
 
 // "yes" → true, "no" → false, unanswered → null
 function yesNo(name) {
@@ -432,14 +479,7 @@ function readCheckin() {
     symptoms,
     soreness: radioValue(f, 'soreness'),
   };
-  if (symptoms.includes('heavy_flow')) {
-    checkin.heavyFlow = {
-      soakingHourly: yesNo('soakingHourly'),
-      over7Days: yesNo('over7Days'),
-      largeClots: yesNo('largeClots'),
-      dizzyOrBreathless: yesNo('dizzyOrBreathless'),
-    };
-  }
+  if (symptoms.includes('heavy_flow')) checkin.heavyFlow = heavyFlowAnswers(checkedValues(f, 'heavyFlowSigns'));
   if (symptoms.includes('cramps')) checkin.severePainNotEasing = yesNo('severePainNotEasing');
   return checkin;
 }

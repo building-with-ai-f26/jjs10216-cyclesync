@@ -8,10 +8,16 @@
 - **Tech stack:** [e.g., Python 3.12 / FastAPI / Next.js / SQLite / OpenRouter API]
 
 ## 2. Commands
-- **Install dependencies:** `[e.g., npm install / uv sync]`
-- **Run locally:** `[e.g., npm run dev]`
-- **Run deterministic tests:** `[e.g., pytest / npm test]`
-- **Run model evals:** `[e.g., python tests/eval.py]`
+- **Install dependencies:** none. The app uses only what's built into Node.js 22+ (tested on Node 26). Copy `.env.example` to `.env` when you have keys.
+- **Run locally:** `npm run dev`, then open http://localhost:3000 (restarts automatically when files change; Ctrl+C to stop)
+- **Run deterministic tests:** `npm test` (fast, no browser; runs `tests/**/*.test.js`)
+- **Run the browser check:** `npm run test:browser`
+  - Clicks through the real app in headless Google Chrome at phone size: onboarding, the one-question-at-a-time check-in, heavy-flow and cramps follow-ups, cycle context, "Update my cycle", and the period due/late prompt.
+  - Needs Google Chrome installed (set `CHROME_PATH` if it isn't in `/Applications`). No npm packages.
+  - Uses its own server on port 3131 and a **temporary** data file, so `data/cyclesync-db.json` is never touched.
+  - Prints PASS/FAIL per check and the folder where it saved screenshots.
+  - **Run it after any change to `public/`**, and update `tests/browser-check.mjs` when screens or flows change.
+- **Run model evals:** `[Build 4]`
 
 ## 3. Non-Negotiable Engineering Rules
 1. **Plan before coding:** Before touching multiple files, propose a brief plan and wait for approval.
