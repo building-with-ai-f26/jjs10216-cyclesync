@@ -114,7 +114,7 @@ onboardingForm.addEventListener('submit', async (event) => {
       errorBox.hidden = false;
       return;
     }
-    showScreen('checkin');
+    await start();
   } catch {
     errorBox.textContent = 'Could not reach the server. Is it running?';
     errorBox.hidden = false;
@@ -129,30 +129,278 @@ $('edit-setup').addEventListener('click', async () => {
   showScreen('onboarding');
 });
 
-// ---------- Morning check-in ----------
-const checkinForm = $('checkin-form');
+// ---------- Today's context (greeting, cycle day, phase) ----------
+let profile = null; // her setup answers
+let cycle = null; // from the server: cycleDay, phase, phaseInfo, periodDue, periodLate...
 
-// Show only the detail questions for the picked workout type,
-// and only the follow-ups for the picked symptoms.
-function updateCheckinVisibility() {
-  const type = radioValue(checkinForm, 'workoutType');
-  $('detail-run').hidden = type !== 'run';
-  $('detail-strength').hidden = type !== 'strength';
-  $('detail-class').hidden = type !== 'class';
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
-  const symptoms = checkedValues(checkinForm, 'symptoms');
-  $('followup-heavy-flow').hidden = !symptoms.includes('heavy_flow');
-  $('followup-cramps').hidden = !symptoms.includes('cramps');
+function greeting(hour) {
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
 }
 
+async function loadContext() {
+  const { ok, status, data } = await api(`/api/context?userId=${userId}&today=${todayLocal()}`);
+  if (!ok) return status === 404 ? 'not-set-up' : 'error';
+  profile = data.profile;
+  cycle = data.cycle;
+  return 'ok';
+}
+
+function renderContext() {
+  const now = new Date();
+  $('greeting').textContent = greeting(now.getHours());
+
+  // "Tuesday · Day 4 · est. menstrual"
+  const weekday = WEEKDAYS[now.getDay()];
+  const parts = [weekday, `Day ${cycle.cycleDay}`];
+  if (cycle.phase) parts.push(`est. ${cycle.phase}`);
+  $('context-text').textContent = parts.join(' · ');
+
+  $('info-toggle').hidden = !cycle.phase;
+  $('info-toggle').setAttribute('aria-expanded', 'false');
+  $('estimate-note').hidden = true;
+  $('estimate-note').textContent = cycle.estimateNote ?? '';
+  $('phase-info').hidden = !cycle.phaseInfo;
+  $('phase-info').textContent = cycle.phaseInfo ?? '';
+
+  const usualDay = profile.workoutDays.includes(WEEKDAY_KEYS[now.getDay()]);
+  $('workout-day').hidden = !usualDay;
+  $('workout-day').textContent = `${weekday} is one of your usual workout days.`;
+
+  renderPeriodBox();
+}
+
+$('info-toggle').addEventListener('click', () => {
+  const open = $('estimate-note').hidden;
+  $('estimate-note').hidden = !open;
+  $('info-toggle').setAttribute('aria-expanded', String(open));
+});
+
+// ---------- "My period started" ----------
+// A small link at the bottom; moved to the top and made prominent when due or late.
+function renderPeriodBox() {
+  const box = $('period-box');
+  const prominent = cycle.periodDue || cycle.periodLate;
+  box.classList.toggle('prominent', prominent);
+  $(prominent ? 'period-slot-top' : 'period-slot-bottom').appendChild(box);
+
+  $('period-prompt').hidden = !prominent;
+  $('period-prompt').textContent = cycle.periodLate
+    ? 'Your period might be late. Has it started?'
+    : 'Your period may be due. Has it started?';
+  $('period-start').textContent = prominent ? 'Yes, it started today' : 'My period started today';
+
+  $('period-confirm').hidden = true;
+  $('period-start').hidden = false;
+}
+
+function showPeriodMessage(text) {
+  $('period-message').textContent = text;
+  $('period-message').hidden = false;
+}
+
+$('period-start').addEventListener('click', () => {
+  $('period-confirm-text').textContent = `You're on day ${cycle.cycleDay}. Start a new cycle from today?`;
+  $('period-start').hidden = true;
+  $('period-confirm').hidden = false;
+  $('period-message').hidden = true;
+});
+
+$('period-cancel').addEventListener('click', () => {
+  $('period-confirm').hidden = true;
+  $('period-start').hidden = false;
+});
+
+$('period-yes').addEventListener('click', async () => {
+  $('period-confirm').hidden = true;
+  $('period-start').hidden = false;
+  try {
+    const { ok, data } = await api('/api/period', {
+      method: 'POST',
+      body: JSON.stringify({ userId, date: todayLocal() }),
+    });
+    if (!ok) return showPeriodMessage(data.error || 'Could not save. Please try again.');
+    // Refresh the header (day 1, phase) without losing answers she's already given.
+    if ((await loadContext()) === 'ok') {
+      renderContext();
+      renderStep();
+    }
+    showPeriodMessage('Saved. Today is day 1.');
+  } catch {
+    showPeriodMessage('Could not reach the server. Is it running?');
+  }
+});
+
+// ---------- Morning check-in: one question at a time ----------
+const checkinForm = $('checkin-form');
+let currentStep = null;
+let advanceTimer = null;
+
+// Ask "Any cramps today?" first on period days, if she said cramps usually
+// (or sometimes) affect her workouts.
+function asksCrampsFirst() {
+  const affects = profile?.patterns.crampsAffectWorkouts;
+  return Boolean(cycle?.isPeriodDay && (affects === 'yes' || affects === 'sometimes'));
+}
+
+// The questions to ask, in order, given the answers so far.
+function stepList() {
+  const f = checkinForm;
+  const steps = [];
+  const crampsFirst = asksCrampsFirst();
+  if (crampsFirst) {
+    steps.push('crampsFirst');
+    if (radioValue(f, 'crampsToday') === 'yes') steps.push('severePain');
+  }
+
+  steps.push('workout');
+  const type = radioValue(f, 'workoutType');
+  if (type === 'run') steps.push('runAmount', 'runKind');
+  if (type === 'strength') steps.push('strengthFocus', 'strengthLoad');
+  if (type === 'class') steps.push('classType');
+
+  steps.push('energy', 'sleep', 'symptoms');
+
+  const symptoms = checkedValues(f, 'symptoms');
+  if (symptoms.includes('heavy_flow')) steps.push('soakingHourly', 'over7Days', 'largeClots', 'dizzyOrBreathless');
+  // Cramps picked here (and not already asked about up front): ask about severity now.
+  if (symptoms.includes('cramps') && !steps.includes('severePain')) steps.push('severePain');
+
+  steps.push('soreness');
+  return steps;
+}
+
+// Is this question answered? (Soreness is optional, so always "done".)
+function isAnswered(step) {
+  const f = checkinForm;
+  switch (step) {
+    case 'crampsFirst': return radioValue(f, 'crampsToday') !== null;
+    case 'severePain': return radioValue(f, 'severePainNotEasing') !== null;
+    case 'workout': return radioValue(f, 'workoutType') !== null;
+    case 'runAmount': return Number(f.runAmount.value) > 0 && radioValue(f, 'runUnit') !== null;
+    case 'runKind': return radioValue(f, 'runKind') !== null;
+    case 'strengthFocus': return radioValue(f, 'strengthFocus') !== null;
+    case 'strengthLoad': return radioValue(f, 'strengthLoad') !== null;
+    case 'classType': return radioValue(f, 'classType') !== null;
+    case 'energy': return radioValue(f, 'energy') !== null;
+    case 'sleep': return radioValue(f, 'sleep') !== null;
+    case 'symptoms': return checkedValues(f, 'symptoms').length > 0;
+    case 'soakingHourly':
+    case 'over7Days':
+    case 'largeClots':
+    case 'dizzyOrBreathless': return radioValue(f, step) !== null;
+    default: return true;
+  }
+}
+
+function renderStep() {
+  const steps = stepList();
+  if (!steps.includes(currentStep)) currentStep = steps[0];
+  const index = steps.indexOf(currentStep);
+
+  for (const el of checkinForm.querySelectorAll('.step')) {
+    el.hidden = el.dataset.step !== currentStep;
+  }
+
+  $('dots').replaceChildren(
+    ...steps.map((_, i) => {
+      const dot = document.createElement('span');
+      if (i < index) dot.className = 'done';
+      if (i === index) dot.className = 'on';
+      return dot;
+    }),
+  );
+  $('step-back').disabled = index === 0;
+
+  // "Next" buttons (run distance, symptoms) only work once answered.
+  for (const btn of checkinForm.querySelectorAll('[data-next]')) {
+    btn.disabled = !isAnswered(btn.closest('.step').dataset.step);
+  }
+  $('checkin-error').hidden = true;
+}
+
+function goNext() {
+  clearTimeout(advanceTimer);
+  const steps = stepList();
+  const index = steps.indexOf(currentStep);
+  if (index < steps.length - 1) currentStep = steps[index + 1];
+  renderStep();
+  window.scrollTo(0, 0);
+}
+
+function goBack() {
+  clearTimeout(advanceTimer);
+  const steps = stepList();
+  const index = steps.indexOf(currentStep);
+  if (index > 0) currentStep = steps[index - 1];
+  renderStep();
+}
+
+function resetCheckin() {
+  checkinForm.reset();
+  currentStep = null;
+  renderStep();
+}
+
+$('step-back').addEventListener('click', goBack);
+for (const btn of checkinForm.querySelectorAll('[data-next]')) btn.addEventListener('click', goNext);
+
+// Keep "Any cramps today?" and the symptom list in step with each other,
+// and keep "None" from being picked together with other symptoms.
 checkinForm.addEventListener('change', (event) => {
-  // "None" and the other symptoms can't be picked together.
-  if (event.target.name === 'symptoms' && event.target.checked) {
+  const { name, value, checked } = event.target;
+
+  if (name === 'crampsToday') {
+    const cramps = checkinForm.querySelector('input[name="symptoms"][value="cramps"]');
+    cramps.checked = value === 'yes';
+    if (value === 'yes') checkinForm.querySelector('input[name="symptoms"][value="none"]').checked = false;
+  }
+
+  if (name === 'symptoms' && checked) {
     for (const box of checkinForm.querySelectorAll('input[name="symptoms"]')) {
-      if (event.target.value === 'none' ? box.value !== 'none' : box.value === 'none') box.checked = false;
+      if (value === 'none' ? box.value !== 'none' : box.value === 'none') box.checked = false;
     }
   }
-  updateCheckinVisibility();
+
+  renderStep();
+});
+
+checkinForm.addEventListener('input', (event) => {
+  if (event.target.name === 'runAmount') renderStep();
+});
+
+// Auto-advance: tapping an answer moves to the next question after a short
+// pause (so she sees her choice). Tapping the same answer again also advances,
+// which matters after using the back arrow.
+// Not on: symptoms (pick several, then Next), unless "Nothing, I feel good";
+// run distance (type a number); soreness (last question, has its own button).
+checkinForm.addEventListener('click', (event) => {
+  const input = event.target;
+  if (input.tagName !== 'INPUT') return;
+  const step = input.closest('.step')?.dataset.step;
+  if (!step || step === 'soreness') return;
+
+  let advance = false;
+  if (input.type === 'radio' && step !== 'runAmount') advance = true;
+  if (step === 'runAmount' && input.name === 'runUnit') advance = isAnswered('runAmount');
+  if (step === 'symptoms') advance = input.value === 'none' && input.checked;
+
+  if (advance) {
+    clearTimeout(advanceTimer);
+    advanceTimer = setTimeout(goNext, 250);
+  }
+});
+
+// Enter on the distance box = Next, instead of submitting the form.
+$('runAmount').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    if (isAnswered('runAmount')) goNext();
+  }
 });
 
 // "yes" → true, "no" → false, unanswered → null
@@ -199,6 +447,17 @@ function readCheckin() {
 checkinForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const errorBox = $('checkin-error');
+
+  // Anything skipped (other than soreness)? Go back to it.
+  const missing = stepList().find((step) => !isAnswered(step));
+  if (missing) {
+    currentStep = missing;
+    renderStep();
+    errorBox.textContent = 'Just this one first.';
+    errorBox.hidden = false;
+    return;
+  }
+
   const button = checkinForm.querySelector('button[type="submit"]');
   errorBox.hidden = true;
   button.disabled = true;
@@ -222,43 +481,22 @@ checkinForm.addEventListener('submit', async (event) => {
   }
 });
 
-$('back-to-checkin').addEventListener('click', () => showScreen('checkin'));
-
-// ---------- "My period started" ----------
-function showPeriodMessage(text) {
-  $('period-message').textContent = text;
-  $('period-message').hidden = false;
-}
-
-$('period-start').addEventListener('click', () => {
-  $('period-start').hidden = true;
-  $('period-confirm').hidden = false;
-  $('period-message').hidden = true;
-});
-
-$('period-cancel').addEventListener('click', () => {
-  $('period-confirm').hidden = true;
-  $('period-start').hidden = false;
-});
-
-$('period-yes').addEventListener('click', async () => {
-  $('period-confirm').hidden = true;
-  $('period-start').hidden = false;
-  try {
-    const { ok, data } = await api('/api/period', {
-      method: 'POST',
-      body: JSON.stringify({ userId, date: todayLocal() }),
-    });
-    showPeriodMessage(ok ? 'Saved. Today is day 1.' : data.error || 'Could not save. Please try again.');
-  } catch {
-    showPeriodMessage('Could not reach the server. Is it running?');
-  }
+$('back-to-checkin').addEventListener('click', () => {
+  resetCheckin();
+  showScreen('checkin');
 });
 
 // ---------- Start ----------
-// Already set up? Go to the check-in. Otherwise, onboarding.
-api(`/api/onboarding?userId=${userId}`)
-  .then(({ ok }) => showScreen(ok ? 'checkin' : 'onboarding'))
-  .catch(() => {
-    $('loading').textContent = 'Could not reach the server. Is it running?';
-  });
+// Set up already? Open the check-in with today's context. Otherwise, onboarding.
+async function start() {
+  const result = await loadContext();
+  if (result === 'not-set-up') return showScreen('onboarding');
+  if (result === 'error') throw new Error('Could not load');
+  renderContext();
+  resetCheckin();
+  showScreen('checkin');
+}
+
+start().catch(() => {
+  $('loading').textContent = 'Could not reach the server. Is it running?';
+});

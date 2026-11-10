@@ -86,179 +86,212 @@
       </form>
     </section>
 
-    <!-- MORNING CHECK-IN. "ph-no-capture" hides health answers from PostHog replays and click tracking. -->
+    <!-- MORNING CHECK-IN: one question at a time.
+         "ph-no-capture" hides health information from PostHog replays and click tracking. -->
     <section id="screen-checkin" hidden>
-      <h1>Good morning</h1>
-      <p class="muted">How are you feeling today?</p>
+      <h1 id="greeting">Good morning</h1>
 
-      <!-- "My period started": two taps, so a mis-tap doesn't reset her cycle day -->
-      <div class="period-box ph-no-capture">
-        <button type="button" id="period-start" class="btn btn-secondary btn-small">My period started today</button>
-        <div id="period-confirm" class="period-confirm" hidden>
-          <span>Set today as day 1?</span>
-          <button type="button" id="period-yes" class="btn btn-small">Yes</button>
-          <button type="button" id="period-cancel" class="btn btn-secondary btn-small">Cancel</button>
-        </div>
-        <p id="period-message" class="hint" role="status" hidden></p>
+      <!-- Today's context: "Tuesday · Day 4 · est. menstrual" -->
+      <div class="context ph-no-capture">
+        <p class="context-line">
+          <span id="context-text"></span>
+          <button type="button" id="info-toggle" class="info-btn" aria-label="How is this estimated?" aria-expanded="false" hidden>i</button>
+        </p>
+        <p id="estimate-note" class="estimate-note" hidden></p>
+        <p id="phase-info" class="phase-info" hidden></p>
+        <p id="workout-day" class="workout-day" hidden></p>
+      </div>
+
+      <!-- The period box moves here when her period is due or late -->
+      <div id="period-slot-top"></div>
+
+      <div class="stepper">
+        <button type="button" id="step-back" class="back-btn" aria-label="Back">←</button>
+        <div id="dots" class="dots" aria-hidden="true"></div>
       </div>
 
       <form id="checkin-form" class="ph-no-capture" novalidate>
-        <fieldset class="field">
-          <legend class="q">Today's planned workout</legend>
-          <div class="chips">
-            <label class="chip"><input type="radio" name="workoutType" value="run" /><span>Run</span></label>
-            <label class="chip"><input type="radio" name="workoutType" value="strength" /><span>Strength</span></label>
-            <label class="chip"><input type="radio" name="workoutType" value="class" /><span>Class</span></label>
-            <label class="chip"><input type="radio" name="workoutType" value="walk_yoga" /><span>Walk or yoga</span></label>
-          </div>
-        </fieldset>
 
-        <!-- One detail, depending on the workout type -->
-        <div id="detail-run" class="detail" hidden>
-          <div class="field">
-            <label for="runAmount" class="q">How far or how long?</label>
-            <div class="inline">
-              <input type="number" id="runAmount" name="runAmount" min="0" step="0.5" inputmode="decimal" />
-              <div class="chips">
-                <label class="chip"><input type="radio" name="runUnit" value="miles" /><span>miles</span></label>
-                <label class="chip"><input type="radio" name="runUnit" value="km" /><span>km</span></label>
-                <label class="chip"><input type="radio" name="runUnit" value="minutes" /><span>minutes</span></label>
-              </div>
-            </div>
+        <!-- Asked first on period days, if she said cramps usually affect her workouts -->
+        <div class="step" data-step="crampsFirst" hidden>
+          <h2 class="step-q">Any cramps today?</h2>
+          <p class="step-sub">You mentioned cramps can affect your workouts.</p>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="crampsToday" value="yes" /><span>Yes</span></label>
+            <label class="chip"><input type="radio" name="crampsToday" value="no" /><span>No</span></label>
           </div>
-          <fieldset class="field">
-            <legend class="q">What kind of run?</legend>
-            <div class="chips">
-              <label class="chip"><input type="radio" name="runKind" value="easy" /><span>Easy</span></label>
-              <label class="chip"><input type="radio" name="runKind" value="tempo" /><span>Tempo</span></label>
-              <label class="chip"><input type="radio" name="runKind" value="intervals" /><span>Intervals</span></label>
-              <label class="chip"><input type="radio" name="runKind" value="long" /><span>Long</span></label>
-            </div>
-          </fieldset>
         </div>
 
-        <div id="detail-strength" class="detail" hidden>
-          <fieldset class="field">
-            <legend class="q">Focus</legend>
-            <div class="chips">
-              <label class="chip"><input type="radio" name="strengthFocus" value="upper" /><span>Upper body</span></label>
-              <label class="chip"><input type="radio" name="strengthFocus" value="lower" /><span>Lower body</span></label>
-              <label class="chip"><input type="radio" name="strengthFocus" value="full" /><span>Full body</span></label>
-            </div>
-          </fieldset>
-          <fieldset class="field">
-            <legend class="q">Heavy or light?</legend>
-            <div class="chips">
-              <label class="chip"><input type="radio" name="strengthLoad" value="heavy" /><span>Heavy</span></label>
-              <label class="chip"><input type="radio" name="strengthLoad" value="light" /><span>Light</span></label>
-            </div>
-          </fieldset>
+        <div class="step" data-step="severePain" hidden>
+          <h2 class="step-q">Sorry you're dealing with cramps. Are they severe, and not easing up?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="severePainNotEasing" value="yes" /><span>Yes, they're bad</span></label>
+            <label class="chip"><input type="radio" name="severePainNotEasing" value="no" /><span>No, I can manage</span></label>
+          </div>
         </div>
 
-        <div id="detail-class" class="detail" hidden>
-          <fieldset class="field">
-            <legend class="q">What kind of class?</legend>
-            <div class="chips">
-              <label class="chip"><input type="radio" name="classType" value="spin" /><span>Spin</span></label>
-              <label class="chip"><input type="radio" name="classType" value="hiit" /><span>HIIT</span></label>
-              <label class="chip"><input type="radio" name="classType" value="pilates" /><span>Pilates</span></label>
-              <label class="chip"><input type="radio" name="classType" value="barre" /><span>Barre</span></label>
-              <label class="chip"><input type="radio" name="classType" value="other" /><span>Other</span></label>
-            </div>
-          </fieldset>
+        <div class="step" data-step="workout" hidden>
+          <h2 class="step-q">What's on the plan today?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="workoutType" value="run" /><span>🏃‍♀️ Run</span></label>
+            <label class="chip"><input type="radio" name="workoutType" value="strength" /><span>🏋️‍♀️ Strength</span></label>
+            <label class="chip"><input type="radio" name="workoutType" value="class" /><span>🚴‍♀️ Class</span></label>
+            <label class="chip"><input type="radio" name="workoutType" value="walk_yoga" /><span>🧘‍♀️ Walk or yoga</span></label>
+          </div>
         </div>
 
-        <fieldset class="field">
-          <legend class="q">Energy</legend>
-          <p class="hint">1 = running on empty, 5 = ready for anything</p>
-          <div class="chips">
-            <label class="chip"><input type="radio" name="energy" value="1" /><span>1</span></label>
-            <label class="chip"><input type="radio" name="energy" value="2" /><span>2</span></label>
-            <label class="chip"><input type="radio" name="energy" value="3" /><span>3</span></label>
-            <label class="chip"><input type="radio" name="energy" value="4" /><span>4</span></label>
-            <label class="chip"><input type="radio" name="energy" value="5" /><span>5</span></label>
+        <div class="step" data-step="runAmount" hidden>
+          <h2 class="step-q"><label for="runAmount">How far or how long?</label></h2>
+          <div class="inline">
+            <input type="number" id="runAmount" name="runAmount" min="0" step="0.5" inputmode="decimal" placeholder="5" />
+            <div class="chips">
+              <label class="chip"><input type="radio" name="runUnit" value="miles" /><span>miles</span></label>
+              <label class="chip"><input type="radio" name="runUnit" value="km" /><span>km</span></label>
+              <label class="chip"><input type="radio" name="runUnit" value="minutes" /><span>minutes</span></label>
+            </div>
           </div>
-        </fieldset>
+          <button type="button" class="btn next-btn" data-next>Next</button>
+        </div>
 
-        <fieldset class="field">
-          <legend class="q">Sleep</legend>
-          <div class="chips">
-            <label class="chip"><input type="radio" name="sleep" value="good" /><span>Good</span></label>
-            <label class="chip"><input type="radio" name="sleep" value="ok" /><span>OK</span></label>
-            <label class="chip"><input type="radio" name="sleep" value="poor" /><span>Poor</span></label>
+        <div class="step" data-step="runKind" hidden>
+          <h2 class="step-q">What kind of run?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="runKind" value="easy" /><span>Easy</span></label>
+            <label class="chip"><input type="radio" name="runKind" value="tempo" /><span>Tempo</span></label>
+            <label class="chip"><input type="radio" name="runKind" value="intervals" /><span>Intervals</span></label>
+            <label class="chip"><input type="radio" name="runKind" value="long" /><span>Long</span></label>
           </div>
-        </fieldset>
+        </div>
 
-        <fieldset class="field">
-          <legend class="q">Any symptoms?</legend>
-          <p class="hint">Pick all that apply.</p>
-          <div class="chips">
-            <label class="chip"><input type="checkbox" name="symptoms" value="none" /><span>None</span></label>
+        <div class="step" data-step="strengthFocus" hidden>
+          <h2 class="step-q">What are you training?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="strengthFocus" value="upper" /><span>Upper body</span></label>
+            <label class="chip"><input type="radio" name="strengthFocus" value="lower" /><span>Lower body</span></label>
+            <label class="chip"><input type="radio" name="strengthFocus" value="full" /><span>Full body</span></label>
+          </div>
+        </div>
+
+        <div class="step" data-step="strengthLoad" hidden>
+          <h2 class="step-q">Going heavy or light?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="strengthLoad" value="heavy" /><span>Heavy</span></label>
+            <label class="chip"><input type="radio" name="strengthLoad" value="light" /><span>Light</span></label>
+          </div>
+        </div>
+
+        <div class="step" data-step="classType" hidden>
+          <h2 class="step-q">Which class?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="classType" value="spin" /><span>Spin</span></label>
+            <label class="chip"><input type="radio" name="classType" value="hiit" /><span>HIIT</span></label>
+            <label class="chip"><input type="radio" name="classType" value="pilates" /><span>Pilates</span></label>
+            <label class="chip"><input type="radio" name="classType" value="barre" /><span>Barre</span></label>
+            <label class="chip"><input type="radio" name="classType" value="other" /><span>Something else</span></label>
+          </div>
+        </div>
+
+        <div class="step" data-step="energy" hidden>
+          <h2 class="step-q">How's your energy?</h2>
+          <div class="emoji-scale">
+            <label class="chip chip-emoji"><input type="radio" name="energy" value="1" aria-label="1 of 5, very low" /><span><b aria-hidden="true">😩</b><small>1</small></span></label>
+            <label class="chip chip-emoji"><input type="radio" name="energy" value="2" aria-label="2 of 5, low" /><span><b aria-hidden="true">😕</b><small>2</small></span></label>
+            <label class="chip chip-emoji"><input type="radio" name="energy" value="3" aria-label="3 of 5, OK" /><span><b aria-hidden="true">😐</b><small>3</small></span></label>
+            <label class="chip chip-emoji"><input type="radio" name="energy" value="4" aria-label="4 of 5, good" /><span><b aria-hidden="true">🙂</b><small>4</small></span></label>
+            <label class="chip chip-emoji"><input type="radio" name="energy" value="5" aria-label="5 of 5, great" /><span><b aria-hidden="true">🤩</b><small>5</small></span></label>
+          </div>
+          <div class="scale-ends"><span>Running on empty</span><span>Ready for anything</span></div>
+        </div>
+
+        <div class="step" data-step="sleep" hidden>
+          <h2 class="step-q">How'd you sleep?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="sleep" value="good" /><span>😴 Slept well</span></label>
+            <label class="chip"><input type="radio" name="sleep" value="ok" /><span>😐 OK</span></label>
+            <label class="chip"><input type="radio" name="sleep" value="poor" /><span>🥱 Not great</span></label>
+          </div>
+        </div>
+
+        <div class="step" data-step="symptoms" hidden>
+          <h2 class="step-q">Anything bugging you today?</h2>
+          <p class="step-sub">Pick all that apply.</p>
+          <div class="chips chips-big">
+            <label class="chip"><input type="checkbox" name="symptoms" value="none" /><span>Nothing, I feel good</span></label>
             <label class="chip"><input type="checkbox" name="symptoms" value="cramps" /><span>Cramps</span></label>
             <label class="chip"><input type="checkbox" name="symptoms" value="bloating" /><span>Bloating</span></label>
             <label class="chip"><input type="checkbox" name="symptoms" value="headache" /><span>Headache</span></label>
-            <label class="chip"><input type="checkbox" name="symptoms" value="fatigue" /><span>Fatigue</span></label>
+            <label class="chip"><input type="checkbox" name="symptoms" value="fatigue" /><span>Tired</span></label>
             <label class="chip"><input type="checkbox" name="symptoms" value="heavy_flow" /><span>Heavy flow</span></label>
           </div>
-        </fieldset>
-
-        <!-- Follow-ups for the safety screen: only shown when their symptom is picked -->
-        <div id="followup-heavy-flow" class="followup" hidden>
-          <p class="followup-title">A few quick questions about heavy flow</p>
-          <fieldset class="field">
-            <legend class="q">Soaking a pad or tampon every hour for more than 2 hours?</legend>
-            <div class="chips">
-              <label class="chip"><input type="radio" name="soakingHourly" value="yes" /><span>Yes</span></label>
-              <label class="chip"><input type="radio" name="soakingHourly" value="no" /><span>No</span></label>
-            </div>
-          </fieldset>
-          <fieldset class="field">
-            <legend class="q">Bleeding for more than 7 days?</legend>
-            <div class="chips">
-              <label class="chip"><input type="radio" name="over7Days" value="yes" /><span>Yes</span></label>
-              <label class="chip"><input type="radio" name="over7Days" value="no" /><span>No</span></label>
-            </div>
-          </fieldset>
-          <fieldset class="field">
-            <legend class="q">Clots larger than a quarter?</legend>
-            <div class="chips">
-              <label class="chip"><input type="radio" name="largeClots" value="yes" /><span>Yes</span></label>
-              <label class="chip"><input type="radio" name="largeClots" value="no" /><span>No</span></label>
-            </div>
-          </fieldset>
-          <fieldset class="field">
-            <legend class="q">Feeling dizzy, short of breath, or unusually exhausted?</legend>
-            <div class="chips">
-              <label class="chip"><input type="radio" name="dizzyOrBreathless" value="yes" /><span>Yes</span></label>
-              <label class="chip"><input type="radio" name="dizzyOrBreathless" value="no" /><span>No</span></label>
-            </div>
-          </fieldset>
+          <button type="button" class="btn next-btn" data-next>Next</button>
         </div>
 
-        <div id="followup-cramps" class="followup" hidden>
-          <fieldset class="field">
-            <legend class="q">Is the pain severe and not easing?</legend>
-            <div class="chips">
-              <label class="chip"><input type="radio" name="severePainNotEasing" value="yes" /><span>Yes</span></label>
-              <label class="chip"><input type="radio" name="severePainNotEasing" value="no" /><span>No</span></label>
-            </div>
-          </fieldset>
+        <!-- Heavy-flow follow-ups (needed for the safety screen), one at a time -->
+        <div class="step" data-step="soakingHourly" hidden>
+          <p class="step-care">Thanks for telling me. A few quick questions so I can look out for you.</p>
+          <h2 class="step-q">Are you soaking through a pad or tampon every hour, for more than 2 hours in a row?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="soakingHourly" value="yes" /><span>Yes</span></label>
+            <label class="chip"><input type="radio" name="soakingHourly" value="no" /><span>No</span></label>
+          </div>
         </div>
 
-        <fieldset class="field">
-          <legend class="q">Soreness <span class="optional">(optional)</span></legend>
-          <div class="chips">
+        <div class="step" data-step="over7Days" hidden>
+          <h2 class="step-q">Has this period lasted more than 7 days?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="over7Days" value="yes" /><span>Yes</span></label>
+            <label class="chip"><input type="radio" name="over7Days" value="no" /><span>No</span></label>
+          </div>
+        </div>
+
+        <div class="step" data-step="largeClots" hidden>
+          <h2 class="step-q">Are you passing any clots bigger than a quarter?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="largeClots" value="yes" /><span>Yes</span></label>
+            <label class="chip"><input type="radio" name="largeClots" value="no" /><span>No</span></label>
+          </div>
+        </div>
+
+        <div class="step" data-step="dizzyOrBreathless" hidden>
+          <h2 class="step-q">Are you feeling dizzy, short of breath, or more wiped out than usual?</h2>
+          <div class="chips chips-big">
+            <label class="chip"><input type="radio" name="dizzyOrBreathless" value="yes" /><span>Yes</span></label>
+            <label class="chip"><input type="radio" name="dizzyOrBreathless" value="no" /><span>No</span></label>
+          </div>
+        </div>
+
+        <!-- Last question: optional, and leads straight to the recommendation -->
+        <div class="step" data-step="soreness" hidden>
+          <h2 class="step-q">Any soreness?</h2>
+          <p class="step-sub">Optional. Skip it if you like.</p>
+          <div class="chips chips-big">
             <label class="chip"><input type="radio" name="soreness" value="none" /><span>None</span></label>
-            <label class="chip"><input type="radio" name="soreness" value="some" /><span>Some</span></label>
+            <label class="chip"><input type="radio" name="soreness" value="some" /><span>A little</span></label>
             <label class="chip"><input type="radio" name="soreness" value="a_lot" /><span>A lot</span></label>
           </div>
-        </fieldset>
+          <button type="submit" class="btn next-btn">Get my recommendation</button>
+        </div>
 
         <p id="checkin-error" class="error" role="alert" hidden></p>
-        <button type="submit" class="btn">Get my recommendation</button>
       </form>
 
-      <button type="button" id="edit-setup" class="link-btn">Edit my setup</button>
+      <!-- "My period started": a small link here, moved to the top and made prominent when due or late -->
+      <div id="period-slot-bottom">
+        <div id="period-box" class="period-box ph-no-capture">
+          <p id="period-prompt" class="period-prompt" hidden></p>
+          <button type="button" id="period-start" class="link-btn">My period started today</button>
+          <div id="period-confirm" class="period-confirm" hidden>
+            <p id="period-confirm-text" class="period-confirm-text"></p>
+            <div class="row">
+              <button type="button" id="period-yes" class="btn btn-small">Yes, start day 1</button>
+              <button type="button" id="period-cancel" class="btn btn-secondary btn-small">Cancel</button>
+            </div>
+          </div>
+          <p id="period-message" class="hint" role="status" hidden></p>
+        </div>
+      </div>
+
+      <button type="button" id="edit-setup" class="link-btn link-quiet">Edit my setup</button>
     </section>
 
     <!-- CHECK-IN RECEIVED (placeholder until the recommendation card is built in step 6) -->

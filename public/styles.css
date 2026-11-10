@@ -6,6 +6,8 @@
   --border: #d1d5db;
   --accent: #1d63dc;
   --accent-soft: #eff6ff;
+  --care: #9d174d;
+  --care-soft: #fdf2f8;
   --error: #b91c1c;
 }
 
@@ -36,7 +38,7 @@ body {
 h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.02em; }
 .muted { color: var(--muted); margin: 0 0 20px; }
 
-/* Questions */
+/* ---------- Onboarding questions ---------- */
 .field {
   border: 0;
   padding: 0;
@@ -59,7 +61,7 @@ input[type="number"] {
 }
 input[type="number"] { width: 6em; }
 
-/* Tap-to-choose chips (real radio buttons / checkboxes underneath) */
+/* ---------- Tap-to-choose chips (real radio buttons / checkboxes underneath) ---------- */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { position: relative; }
 .chip input {
@@ -89,7 +91,42 @@ input[type="number"] { width: 6em; }
   outline-offset: 2px;
 }
 
-/* Buttons */
+/* Bigger chips for the one-question check-in */
+.chips-big { flex-direction: column; gap: 10px; }
+.chips-big .chip span {
+  display: flex;
+  width: 100%;
+  min-height: 54px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-size: 17px;
+}
+
+/* Energy emoji scale */
+.emoji-scale { display: flex; gap: 8px; justify-content: space-between; }
+.chip-emoji { flex: 1; }
+.chip-emoji span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 0;
+  border-radius: 14px;
+}
+.chip-emoji b { font-size: 28px; line-height: 1.1; font-weight: 400; }
+.chip-emoji small { font-size: 13px; color: var(--muted); }
+.chip-emoji input:checked + span small { color: #fff; }
+.scale-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* ---------- Buttons ---------- */
 .btn {
   display: block;
   width: 100%;
@@ -103,13 +140,12 @@ input[type="number"] { width: 6em; }
   color: #fff;
   cursor: pointer;
 }
-.btn:disabled { opacity: 0.6; cursor: default; }
+.btn:disabled { opacity: 0.45; cursor: default; }
 .btn-secondary {
   background: var(--card);
   color: var(--text);
   border: 1px solid var(--border);
 }
-
 .btn-small {
   display: inline-block;
   width: auto;
@@ -117,45 +153,118 @@ input[type="number"] { width: 6em; }
   padding: 8px 14px;
   font-size: 15px;
 }
+.next-btn { margin-top: 20px; }
 
 .link-btn {
   display: block;
-  margin: 24px auto 0;
+  margin: 20px auto 0;
   padding: 10px;
   border: 0;
   background: none;
   font: inherit;
+  font-size: 15px;
   color: var(--accent);
   cursor: pointer;
 }
+.link-quiet { color: var(--muted); margin-top: 4px; }
 
-.optional { font-weight: 400; color: var(--muted); }
-
-.inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-
-/* "My period started" */
-.period-box { margin: 0 0 24px; }
-.period-confirm {
+/* ---------- Check-in header: greeting + today's context ---------- */
+.context { margin: 0 0 20px; }
+.context-line {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  margin: 0;
+  font-weight: 600;
+  color: var(--muted);
 }
-.period-confirm span { font-weight: 600; margin-right: 4px; }
-.period-box .hint { margin: 8px 0 0; }
+.info-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  font: italic 600 13px/1 Georgia, serif;
+  cursor: pointer;
+}
+.estimate-note { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+.phase-info { font-size: 15px; margin: 6px 0 0; }
+.workout-day { font-size: 15px; margin: 6px 0 0; color: var(--accent); font-weight: 600; }
 
-/* Follow-up questions (heavy flow, cramps) */
-.followup {
-  border-left: 3px solid var(--accent);
-  background: var(--accent-soft);
-  border-radius: 0 10px 10px 0;
-  padding: 14px 14px 2px;
-  margin: -8px 0 22px;
+/* ---------- Stepper: back arrow + progress dots ---------- */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
 }
-.followup-title { font-weight: 700; margin: 0 0 12px; }
+.back-btn {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-size: 22px;
+  color: var(--text);
+  cursor: pointer;
+}
+.back-btn:disabled { visibility: hidden; }
+.dots { display: flex; gap: 6px; flex-wrap: wrap; }
+.dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.dots span.done { background: #93b4ee; }
+.dots span.on { background: var(--accent); }
+
+/* ---------- One question ---------- */
+.step-q { font-size: 22px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; }
+.step-q label { font: inherit; }
+.step-sub { color: var(--muted); margin: 0 0 16px; }
+.step-q + .chips,
+.step-q + .emoji-scale,
+.step-q + .inline { margin-top: 16px; }
+.step-care {
+  background: var(--care-soft);
+  color: var(--care);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  font-weight: 600;
+}
+.inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* ---------- "My period started" ---------- */
+.period-box { margin: 8px 0 0; text-align: center; }
+.period-box.prominent {
+  margin: 0 0 20px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--care-soft);
+  text-align: left;
+}
+.period-box.prominent .link-btn {
+  display: inline-block;
+  margin: 8px 0 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--care);
+  color: #fff;
+  font-weight: 600;
+}
+.period-prompt { margin: 0; font-weight: 600; color: var(--care); }
+.period-confirm { margin-top: 8px; }
+.period-confirm-text { margin: 0 0 8px; font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.period-box.prominent .row { justify-content: flex-start; }
+.period-box .hint { margin: 8px 0 0; }
 
 .error {
   color: var(--error);
   font-weight: 600;
-  margin: 0 0 12px;
+  margin: 16px 0 0;
 }
