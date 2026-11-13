@@ -171,5 +171,6 @@ test('the period pattern is only sent when the period is expected within about 5
   assert.match(soon, /expected within about 5 days/);
   const notSoon = buildUserMessage(ctx({ periodSoon: false, phase: 'luteal', patterns }));
   assert.doesNotMatch(notSoon, /before her period|expected within/);
-  assert.match(notSoon, /Cramps usually affect her workouts: sometimes/); // the cramps pattern is still sent
+  assert.doesNotMatch(notSoon, /Cramps usually affect/); // no cramps today
+  assert.match(buildUserMessage(ctx({ symptoms: ['cramps'], patterns })), /Cramps usually affect her workouts: sometimes/);
 });

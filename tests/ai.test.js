@@ -94,3 +94,18 @@ test('the JSON schema matches section 6: five fields, all required, nothing extr
   assert.deepEqual(RESPONSE_SCHEMA.required, ['verdict', 'headline', 'prescription', 'reason', 'extra_tip']);
   assert.equal(RESPONSE_SCHEMA.additionalProperties, false);
 });
+
+test('a retry shows the AI its rejected answer and what was wrong', async () => {
+  const f = fakeFetch(200, okBody);
+  await callOpenRouter({ system: 'S', user: 'U', retry: { previous: '{"verdict":"KEEP"}', problems: ['strides are only allowed on a run, on a great day'] } }, { apiKey: FAKE_KEY, model: 'm', fetchFn: f });
+  const msgs = f.calls[0].body.messages;
+  assert.deepEqual(msgs.map((m) => m.role), ['system', 'user', 'assistant', 'user']);
+  assert.equal(msgs[2].content, '{"verdict":"KEEP"}');
+  assert.match(msgs[3].content, /broke these rules: strides are only allowed on a run, on a great day/);
+});
+
+test('the first try has just the system prompt and the message', async () => {
+  const f = fakeFetch(200, okBody);
+  await callOpenRouter({ system: 'S', user: 'U' }, { apiKey: FAKE_KEY, model: 'm', fetchFn: f });
+  assert.equal(f.calls[0].body.messages.length, 2);
+});

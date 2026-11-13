@@ -48,10 +48,11 @@ test('no mention of ovulation, fertility or pregnancy', () => {
 });
 
 test('cramps + KEEP + a hard session fails; gentler verdicts pass', () => {
-  assert.equal(checkOutput({ ...good, verdict: 'KEEP' }, crampsTempo).ok, false);
-  assert.equal(checkOutput({ ...good, verdict: 'SWAP' }, crampsTempo).ok, true);
+  const restOk = { ...good, extra_tip: 'Resting is just as good a choice today.' }; // cramps days must offer rest
+  assert.match(checkOutput({ ...restOk, verdict: 'KEEP' }, crampsTempo).errors.join(), /KEEP on a hard session with cramps/);
+  assert.equal(checkOutput({ ...restOk, verdict: 'SWAP' }, crampsTempo).ok, true);
   // KEEP on an easy run with cramps isn't blocked by this rule.
-  assert.equal(checkOutput({ ...good, verdict: 'KEEP' }, { ...crampsTempo, workout: { ...tempo.workout, kind: 'easy' } }).ok, true);
+  assert.equal(checkOutput({ ...restOk, verdict: 'KEEP' }, { ...crampsTempo, workout: { ...tempo.workout, kind: 'easy' } }).ok, true);
 });
 
 test('hard sessions: tempo, intervals, HIIT, heavy lifting', () => {
@@ -190,7 +191,7 @@ test('phase names and terms fail in any card field', () => {
     assert.equal(checkOutput({ ...good, reason: text }, tempo).ok, false, text);
   }
   assert.equal(checkOutput({ ...good, extra_tip: 'Some women run a little warmer at this point in their cycle, so bring water.' }, tempo).ok, true);
-  assert.equal(checkOutput({ ...good, reason: 'Menstrual cramps today, so keep it gentle.' }, { ...tempo, symptoms: ['cramps'] }).ok, true);
+  assert.equal(checkOutput({ ...good, reason: 'Menstrual cramps today, so keep it gentle.', extra_tip: 'Resting is just as good.' }, { ...tempo, symptoms: ['cramps'] }).ok, true);
 });
 
 test('"don\'t", "do not", "never" and "hold off on" count as skipping', () => {
@@ -200,4 +201,25 @@ test('"don\'t", "do not", "never" and "hold off on" count as skipping', () => {
   passes('5 miles at effort 6/10; never add strides on a short night.', plan);
   passes('5 miles at effort 6/10. Hold off on strides today.', plan);
   passes('5 miles at effort 6/10. Don’t add extra miles.', plan); // curly apostrophe
+});
+
+// ---------- Cramps day: rest as an equal choice ----------
+import { offersRestAsEqual } from '../lib/checks.js';
+
+test('cramps day: rest must be offered as an equal choice', () => {
+  for (const ok of ['20 minutes of gentle yoga (effort 3/10), or rest. Both are good choices.', 'Resting is just as good today.', 'Rest is an equally good choice today.', 'An easy walk or rest: either is a good call.']) {
+    assert.equal(offersRestAsEqual(ok), true, ok);
+  }
+  for (const bad of ['If cramps feel worse at any point, stop and take the day off instead.', 'A short walk or gentle yoga is an equally good option.', '3 easy miles (effort 3/10).', 'If it gets too uncomfortable, resting is just as good.']) {
+    assert.equal(offersRestAsEqual(bad), false, bad);
+  }
+});
+
+test('cramps day without rest as an equal choice fails the whole answer; a REST verdict is fine', () => {
+  const cramps = { workout: { type: 'run', amount: 5, unit: 'miles', kind: 'tempo' }, energy: 3, sleep: 'ok', symptoms: ['cramps'], soreness: null };
+  const easy = { verdict: 'ADJUST', headline: 'Easy 3 miles', prescription: '3 miles at effort 3/10. If cramps feel worse, stop and walk home.', reason: 'Cramps today.', extra_tip: '' };
+  assert.match(checkOutput(easy, cramps).errors.join(), /offer rest as an equally good choice/);
+  assert.equal(checkOutput({ ...easy, extra_tip: 'Resting is just as good a choice today.' }, cramps).ok, true);
+  assert.equal(checkOutput({ ...easy, verdict: 'REST', prescription: 'Rest today, or a 15-minute walk (effort 2/10).' }, cramps).ok, true);
+  assert.equal(checkOutput(easy, { ...cramps, symptoms: ['none'] }).ok, true); // not a cramps day
 });

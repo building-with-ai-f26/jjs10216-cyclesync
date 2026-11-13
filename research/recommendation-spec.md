@@ -8,7 +8,7 @@ How CycleSync turns a morning check-in into one workout recommendation. Grounded
 2. **Safety screen in code** (section 3). Deterministic rules, no AI. If any rule fires, show its fixed message and stop. The AI is never called.
 3. **Build context**: cycle day, estimated phase (or none), her onboarding patterns, today's inputs.
 4. **Call the AI** with the instructions in section 5 and require the JSON output in section 6.
-5. **Validate the output in code** (section 7). If it fails, retry once; if it fails again, show a safe fallback ("Go with an easy version of your planned workout and listen to your body today").
+5. **Validate the output in code** (section 7). If it fails, retry once, telling the AI which checks its answer broke; if it fails again, show a safe fallback ("Go with an easy version of your planned workout and listen to your body today").
 6. **Save** the check-in, the recommendation and her response (Do this / Original plan / Something else / Rest), each with a check-in ID so a post-workout rating can attach to it later (section 9).
 
 ## 2. Inputs
@@ -89,6 +89,7 @@ Note: the numbers in rules 6 and 7 are coaching heuristics chosen for the produc
 - If cramps were reported, `verdict` is not KEEP with a hard session (tempo, intervals, HIIT, heavy lifting).
 - The prescription is never longer (distance or time) or harder (effort, or a harder session type such as tempo, intervals, sprints or heavy lifting) than the planned workout, and adds no extras. Warm-up, cool-down, stretching, mobility and walking time don't count as longer.
 - The only allowed extra is optional 4-6 short strides on a run, and only when energy is 4 or 5, sleep was good, there are no significant symptoms (bloating alone is fine), and soreness is no more than some.
+- If cramps were reported, the card offers rest as an equally good choice (or the verdict is REST), not only "if cramps get worse".
 - Card text uses no phase names or terms: "phase", "follicular", "luteal" (plus ovulation, above).
 
 ## 8. Seed eval cases (for Build 4, Track A)

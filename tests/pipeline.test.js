@@ -75,7 +75,7 @@ test('safety: usual cramps and heavy flow with "None of these" DO go to the AI',
     { ...normal, symptoms: ['cramps'], crampsUnusual: false },
     { ...normal, symptoms: ['heavy_flow'], heavyFlow: allNo },
   ]) {
-    const ai = fakeAi(good);
+    const ai = fakeAi({ ...good, extra_tip: 'Resting is just as good a choice today.' });
     const out = await runCheckin({ userId, profile, checkin, today }, { ai });
     assert.equal(ai.calls.length, 1);
     assert.equal(out.safety, undefined);
@@ -207,4 +207,22 @@ test('the AI hears "energy dips before her period" only when the period is expec
   const soon = fakeAi(good);
   await runCheckin({ userId, profile: { ...profile, lastPeriodStart: daysAgo(24) }, checkin: normal, today }, { ai: soon }); // day 25 of 28
   assert.match(soon.calls[0].user, /Energy usually lower in the days before her period: yes/);
+});
+
+test('the retry tells the AI what was wrong with its first answer', async () => {
+  const tooLong = { ...good, prescription: '7 miles easy (effort 4/10).' };
+  const ai = fakeAi(tooLong, good);
+  await runCheckin({ userId, profile, checkin: normal, today }, { ai });
+  assert.equal(ai.calls[0].retry, null);
+  assert.deepEqual(JSON.parse(ai.calls[1].retry.previous), tooLong);
+  assert.match(ai.calls[1].retry.problems.join(), /longer than planned/);
+});
+
+test('the AI hears "cramps affect her workouts" only on a day she reports cramps', async () => {
+  const noCramps = fakeAi(good);
+  await runCheckin({ userId, profile, checkin: normal, today }, { ai: noCramps });
+  assert.doesNotMatch(noCramps.calls[0].user, /Cramps usually affect/);
+  const crampsDay = fakeAi({ ...good, extra_tip: 'Resting is just as good a choice today.' });
+  await runCheckin({ userId, profile, checkin: { ...normal, symptoms: ['cramps'], crampsUnusual: false }, today }, { ai: crampsDay });
+  assert.match(crampsDay.calls[0].user, /Cramps usually affect her workouts: sometimes/);
 });
