@@ -12,7 +12,7 @@
 - **Run locally:** `npm run dev`, then open http://localhost:3000 (restarts automatically when files change; Ctrl+C to stop)
 - **Run deterministic tests:** `npm test` (fast, no browser; runs `tests/**/*.test.js`)
 - **Run the browser check:** `npm run test:browser`
-  - Clicks through the real app in headless Google Chrome at phone size: onboarding, the one-question-at-a-time check-in, heavy-flow and cramps follow-ups, the safety screen, cycle context, "Update my cycle", and the period due/late prompt.
+  - Clicks through the real app in headless Google Chrome at phone size: onboarding, the one-question-at-a-time check-in, heavy-flow and cramps follow-ups, the safety screen, the recommendation card and response buttons (mock AI), cycle context, "Update my cycle", and the period due/late prompt.
   - Needs Google Chrome installed (set `CHROME_PATH` if it isn't in `/Applications`). No npm packages.
   - Uses its own server on port 3131 and a **temporary** data file, so `data/cyclesync-db.json` is never touched.
   - Prints PASS/FAIL per check and the folder where it saved screenshots.

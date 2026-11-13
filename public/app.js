@@ -505,7 +505,7 @@ checkinForm.addEventListener('submit', async (event) => {
   try {
     const { ok, data } = await api('/api/checkin', {
       method: 'POST',
-      body: JSON.stringify({ userId, checkin: readCheckin() }),
+      body: JSON.stringify({ userId, today: todayLocal(), checkin: readCheckin() }),
     });
     if (!ok) {
       errorBox.textContent = data.error || 'Something went wrong. Please try again.';
@@ -518,7 +518,7 @@ checkinForm.addEventListener('submit', async (event) => {
       showSafety(data.safety);
       return;
     }
-    showScreen('received');
+    showResult(data);
   } catch {
     errorBox.textContent = 'Could not reach the server. Is it running?';
     errorBox.hidden = false;
@@ -545,7 +545,66 @@ $('safety-back').addEventListener('click', () => {
   showScreen('checkin');
 });
 
-$('back-to-checkin').addEventListener('click', () => {
+// ---------- Recommendation card ----------
+const VERDICT_LABELS = { KEEP: 'Keep', ADJUST: 'Adjust', SWAP: 'Swap', REST: 'Rest' };
+const RESPONSE_SAVED = {
+  do_this: 'Saved: doing this. Have a good one!',
+  original_plan: 'Saved: sticking with your original plan.',
+  something_else: 'Saved: doing something else today.',
+  rest: 'Saved: resting today. Enjoy it.',
+};
+let currentCheckinId = null;
+
+// Fills the card from the server's answer. Text only (textContent, never HTML).
+// If the AI's answer failed the checks twice, the server sends the safe
+// fallback: no verdict, just the message as the headline.
+function showResult({ checkinId, recommendation: rec, cycle: c }) {
+  currentCheckinId = checkinId;
+  $('result-context').textContent = c.phase ? `Day ${c.cycleDay} · est. ${c.phase}` : `Day ${c.cycleDay}`;
+  const verdict = $('result-verdict');
+  verdict.hidden = !rec.verdict;
+  verdict.textContent = VERDICT_LABELS[rec.verdict] ?? '';
+  verdict.className = `verdict verdict-${(rec.verdict ?? '').toLowerCase()}`;
+  $('result-headline').textContent = rec.headline;
+  for (const [id, value] of [['result-prescription', rec.prescription], ['result-reason', rec.reason], ['result-tip', rec.extra_tip]]) {
+    $(id).textContent = value ?? '';
+    $(id).hidden = !value;
+  }
+  for (const b of document.querySelectorAll('#response-buttons button')) {
+    b.disabled = false;
+    b.classList.remove('chosen');
+  }
+  $('response-saved').hidden = true;
+  $('response-error').hidden = true;
+  showScreen('result');
+}
+
+$('response-buttons').addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-response]');
+  if (!button || !currentCheckinId) return;
+  const buttons = document.querySelectorAll('#response-buttons button');
+  for (const b of buttons) b.disabled = true;
+  $('response-error').hidden = true;
+  try {
+    const { ok, data } = await api('/api/response', {
+      method: 'POST',
+      body: JSON.stringify({ userId, checkinId: currentCheckinId, response: button.dataset.response }),
+    });
+    if (!ok) throw new Error(data.error);
+    for (const b of buttons) b.classList.toggle('chosen', b === button);
+    $('response-saved').textContent = RESPONSE_SAVED[button.dataset.response];
+    $('response-saved').hidden = false;
+  } catch {
+    $('response-error').textContent = 'Could not save that. Please try again.';
+    $('response-error').hidden = false;
+  } finally {
+    // She can change her mind: tapping another button saves the new answer.
+    for (const b of buttons) b.disabled = false;
+  }
+});
+
+$('result-new').addEventListener('click', () => {
+  currentCheckinId = null;
   resetCheckin();
   showScreen('checkin');
 });

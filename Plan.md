@@ -91,6 +91,7 @@ jjs10216-cyclesync/
 │   ├── cycle.js        # §4 cycle day + estimated phase
 │   ├── prompt.js       # §5 AI instructions (copied word for word) + builds the message
 │   ├── ai.js           # Calls OpenRouter (or returns the mock); records tokens and cost
+│   ├── mock-ai.js      # Rule-based pretend coach for mock mode ($0); same JSON as the real AI
 │   ├── checks.js       # §7 output checks
 │   ├── pipeline.js     # §1 order: safety → context → AI → checks (retry once → fallback) → save
 │   └── db.js           # The only file that reads/writes saved data (section 2a)

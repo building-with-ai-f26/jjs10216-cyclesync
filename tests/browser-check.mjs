@@ -8,11 +8,13 @@
 //   real data/cyclesync-db.json is never touched.
 // - Covers the safety screen: heavy flow + a warning sign, unusual cramps, and a
 //   normal check-in that passes through.
+// - Covers the recommendation card (mock AI), the four response buttons, and
+//   that the check-in and response are saved under one ID.
 // - Saves screenshots to a temporary folder and prints where.
 // - Not part of `npm test` (that stays fast and browser-free).
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -144,6 +146,23 @@ async function tap(name, value) {
   await js(`document.querySelector('input[name="${name}"][value="${value}"]').click()`);
   await sleep(400); // auto-advance waits 250ms
 }
+async function submit() {
+  await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
+  await waitFor(() => js(`return !document.getElementById('screen-result').hidden || !document.getElementById('screen-safety').hidden`));
+}
+async function respond(value) {
+  await js(`document.querySelector('#response-buttons [data-response="${value}"]').click()`);
+  await waitFor(() => isShown('response-saved'));
+  await sleep(150);
+}
+// Reads the temporary data file the test server writes to.
+function savedCheckin(id) {
+  try {
+    return JSON.parse(readFileSync(join(WORK, 'db.json'), 'utf8')).checkins[id];
+  } catch {
+    return undefined;
+  }
+}
 async function setDate(id, value) {
   await js(`document.getElementById('${id}').value = '${value}'`);
 }
@@ -228,7 +247,7 @@ try {
   check('it shows the heavy-bleeding message, word for word',
     (await text('safety-messages')) === HEAVY_MSG, await text('safety-messages'));
   check('only that one message (cramps were "my usual")', (await js(`return document.querySelectorAll('#safety-messages p').length`)) === 1);
-  check('no recommendation screen', !(await isShown('screen-received')));
+  check('no recommendation card', !(await isShown('screen-result')));
   check('safety screen is hidden from PostHog replays', await js(`return document.getElementById('screen-safety').classList.contains('ph-no-capture')`));
   await shot('4b-safety-heavy');
 
@@ -290,22 +309,58 @@ try {
   check('cramps "Yes" → the safety screen', await isShown('screen-safety'));
   check('it shows the unusual-cramps message, word for word',
     (await text('safety-messages')) === CRAMPS_MSG, await text('safety-messages'));
-  check('no recommendation screen', !(await isShown('screen-received')));
+  check('no recommendation card', !(await isShown('screen-result')));
   await shot('6b-safety-cramps');
   await click('safety-back');
   check('"Back to check-in" → a fresh check-in', (await isShown('screen-checkin')) && (await visibleStep()) === 'workout', await visibleStep());
 
-  console.log('\n— Normal check-in passes through —');
+  console.log('\n— Great day: recommendation card (mock AI) —');
   await tap('workoutType', 'walk_yoga');
-  await tap('energy', '4');
+  await tap('energy', '5');
   await tap('sleep', 'good');
   await tap('symptoms', 'none');
-  await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
-  await waitFor(() => isShown('screen-received'));
-  check('no symptoms → past the safety screen to "Check-in received"', (await isShown('screen-received')) && !(await isShown('screen-safety')));
+  await submit();
+  check('no symptoms → past the safety screen to the recommendation card', (await isShown('screen-result')) && !(await isShown('screen-safety')));
+  check(`card shows "Day 10 · est. follicular"`, (await text('result-context')) === 'Day 10 · est. follicular', await text('result-context'));
+  check('verdict "Keep"', (await text('result-verdict')) === 'Keep', await text('result-verdict'));
+  check('headline "Keep your walk or yoga"', (await text('result-headline')) === 'Keep your walk or yoga', await text('result-headline'));
+  check('prescription has a number', /\d/.test(await text('result-prescription')), await text('result-prescription'));
+  check('reason shows', (await text('result-reason')).length > 0);
+  check('no tip → tip box hidden', !(await isShown('result-tip')));
+  check('the four response buttons, in order',
+    (await js(`return [...document.querySelectorAll('#response-buttons button')].map((b) => b.textContent).join(' / ')`)) === 'Do this / Original plan / Something else / Rest');
+  check('card is hidden from PostHog replays', await js(`return document.getElementById('screen-result').classList.contains('ph-no-capture')`));
+  await shot('7-card-great-day');
+  let id = await js(`return currentCheckinId`);
+  check('the check-in was saved with an ID', !!savedCheckin(id), id);
+  check('saved: answers, recommendation, day/phase, and no response yet', (() => {
+    const c = savedCheckin(id);
+    return c.checkin.energy === 5 && c.recommendation.verdict === 'KEEP' && c.cycle.phase === 'follicular' && c.response === null && c.source === 'mock';
+  })());
+  await respond('do_this');
+  check('"Do this" → "Saved: doing this. Have a good one!"', (await text('response-saved')) === 'Saved: doing this. Have a good one!', await text('response-saved'));
+  check('response saved on the same check-in ID', savedCheckin(id).response === 'do_this');
+  await respond('rest');
+  check('changing to "Rest" updates it', savedCheckin(id).response === 'rest' && (await text('response-saved')) === 'Saved: resting today. Enjoy it.');
+
+  console.log('\n— Low-energy day: tempo run, energy 2, poor sleep —');
+  await click('result-new');
+  check('"Start a new check-in" → a fresh check-in', (await isShown('screen-checkin')) && (await visibleStep()) === 'workout', await visibleStep());
+  await tap('workoutType', 'run');
+  await js(`document.getElementById('runAmount').value = '5'; document.getElementById('runAmount').dispatchEvent(new Event('input', { bubbles: true }))`);
+  await tap('runUnit', 'miles');
+  await tap('runKind', 'tempo');
+  await tap('energy', '2');
+  await tap('sleep', 'poor');
+  await tap('symptoms', 'none');
+  await submit();
+  check('verdict "Adjust"', (await text('result-verdict')) === 'Adjust', await text('result-verdict'));
+  check('headline "Easy 3 miles instead of your 5-mile tempo run"', (await text('result-headline')) === 'Easy 3 miles instead of your 5-mile tempo run', await text('result-headline'));
+  check('a tip shows', await isShown('result-tip'));
+  await shot('8-card-low-energy');
 
   console.log('\n— Cramps, "No, it\'s my usual" passes through —');
-  await click('back-to-checkin');
+  await click('result-new');
   await tap('workoutType', 'walk_yoga');
   await tap('energy', '3');
   await tap('sleep', 'ok');
@@ -313,9 +368,12 @@ try {
   await clickNext('symptoms');
   await tap('crampsUnusual', 'no');
   check('"No, it\'s my usual" → soreness', (await visibleStep()) === 'soreness', await visibleStep());
-  await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
-  await waitFor(() => isShown('screen-received'));
-  check('usual cramps → normal result, no doctor message', (await isShown('screen-received')) && !(await isShown('screen-safety')));
+  await submit();
+  check('usual cramps → recommendation card, no doctor message', (await isShown('screen-result')) && !(await isShown('screen-safety')));
+  check('gentle option, not "Keep"', (await text('result-verdict')) === 'Adjust', await text('result-verdict'));
+  check('rest offered as an equal option', /or rest/.test(await text('result-prescription')), await text('result-prescription'));
+  check('no buttons were pre-selected from the last card', !(await js(`return !!document.querySelector('#response-buttons .chosen')`)) && !(await isShown('response-saved')));
+  await shot('9-card-cramps');
 
   // ===== 3. Late period =====
   console.log('\n— Day 37 of a 28-day cycle (late) —');
@@ -351,6 +409,13 @@ try {
     await openAs(id);
     check(`context reads "${WEEKDAY} · Day 4" (no phase)`, (await text('context-text')) === `${WEEKDAY} · Day 4`, await text('context-text'));
     check('no phase line, no ⓘ icon', !(await isShown('phase-info')) && !(await isShown('info-toggle')));
+    await tap('crampsToday', 'no');
+    await tap('workoutType', 'walk_yoga');
+    await tap('energy', '3');
+    await tap('sleep', 'ok');
+    await tap('symptoms', 'none');
+    await submit();
+    check('card shows "Day 4" only (no phase)', (await text('result-context')) === 'Day 4', await text('result-context'));
     if (WEEKDAY !== 'Saturday') check('not a usual workout day → no workout-day line', !(await isShown('workout-day')));
     await makeUser(id, { ...BASE_PROFILE, contraception, lastPeriodStart: iso(-40), workoutDays: ['sat'] });
     await openAs(id);

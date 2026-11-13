@@ -100,17 +100,21 @@ before(async () => {
 after(() => rmSync(dir, { recursive: true, force: true }));
 
 const send = (checkin) =>
-  POST(new Request('http://x/api/checkin', { method: 'POST', body: JSON.stringify({ userId, checkin }) })).then(async (r) => ({ status: r.status, data: await r.json() }));
+  POST(new Request('http://x/api/checkin', { method: 'POST', body: JSON.stringify({ userId, today: new Date().toISOString().slice(0, 10), checkin }) })).then(async (r) => ({ status: r.status, data: await r.json() }));
 
 test('API: soaking hourly → only the safety message comes back, no workout', async () => {
   const { status, data } = await send({ ...base, symptoms: ['heavy_flow'], heavyFlow: { ...allNo, soakingHourly: true } });
   assert.equal(status, 200);
-  assert.deepEqual(data, { ok: true, safety: [{ rule: 'heavy_bleeding', message: HEAVY }] });
+  const { checkinId, ...rest } = data;
+  assert.match(checkinId, /^[0-9a-f-]{36}$/); // saved, so it has an ID
+  assert.deepEqual(rest, { ok: true, safety: [{ rule: 'heavy_bleeding', message: HEAVY }] }); // nothing else: no workout
 });
 
 test('API: unusual cramps → only the safety message comes back, no workout', async () => {
   const { data } = await send({ ...base, symptoms: ['cramps'], crampsUnusual: true });
-  assert.deepEqual(data, { ok: true, safety: [{ rule: 'unusual_cramps', message: CRAMPS }] });
+  const { checkinId, ...rest } = data;
+  assert.match(checkinId, /^[0-9a-f-]{36}$/); // saved, so it has an ID
+  assert.deepEqual(rest, { ok: true, safety: [{ rule: 'unusual_cramps', message: CRAMPS }] }); // nothing else: no workout
 });
 
 test('API: normal check-in → no safety message', async () => {
