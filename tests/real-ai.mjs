@@ -106,7 +106,9 @@ try {
       console.log(`  Reason:         ${r.reason}`);
       if (r.extra_tip) console.log(`  Tip:            ${r.extra_tip}`);
     } else {
-      console.log(`  → Safe fallback shown: "${r.headline}"`);
+      console.log(saved.source === 'mock-fallback'
+        ? `  → Mock coach card shown instead (mock-fallback): ${r.verdict} · ${r.headline}`
+        : `  → Generic safe fallback shown: "${r.headline}"`);
     }
     console.log(`  Section 7 checks: ${passed ? `PASSED${saved.attempts > 1 ? ' (on the retry)' : ' (first try)'}` : 'FAILED twice → fallback'}`);
     for (const [i, f] of (saved.failures ?? []).entries()) console.log(`    attempt ${i + 1} problem: ${f.join('; ')}`);

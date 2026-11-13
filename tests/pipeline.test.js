@@ -105,9 +105,21 @@ test('fails the checks once → retries once → uses the good second answer', a
   assert.equal(saved.usage.tokensIn, 200); // both calls counted
 });
 
-test('fails twice → the exact section 1 fallback, no third call', async () => {
+test('fails twice → the mock coach\'s card, saved as "mock-fallback", no third call', async () => {
   const ai = fakeAi(bad, { ...good, reason: 'Science says rest.' });
   const out = await runCheckin({ userId, profile, checkin: normal, today }, { ai });
+  assert.equal(ai.calls.length, 2);
+  assert.equal(out.recommendation.verdict, 'ADJUST'); // energy 2, poor sleep, tempo → the mock's easier run
+  assert.equal(out.recommendation.headline, 'Easy 3 miles instead of your 5-mile tempo run');
+  const saved = await getCheckin(out.checkinId);
+  assert.equal(saved.source, 'mock-fallback');
+  assert.equal(saved.rejected.length, 2); // both AI answers kept for review
+});
+
+test('if the mock coach also fails the checks → the exact section 1 sentence', async () => {
+  const ai = fakeAi(bad, { ...good, reason: 'Science says rest.' });
+  const brokenMock = () => ({ verdict: 'KEEP', headline: 'x', prescription: 'no number', reason: 'x', extra_tip: '' });
+  const out = await runCheckin({ userId, profile, checkin: normal, today }, { ai, mock: brokenMock });
   assert.equal(ai.calls.length, 2);
   assert.equal(FALLBACK_MESSAGE, 'Go with an easy version of your planned workout and listen to your body today');
   assert.deepEqual(out.recommendation, { verdict: null, headline: FALLBACK_MESSAGE, prescription: null, reason: null, extra_tip: null });
@@ -118,7 +130,7 @@ test('an AI error or non-JSON reply counts as a failure, then falls back', async
   const ai = fakeAi(new Error('timeout'), 'Sorry, I cannot help with that.');
   const out = await runCheckin({ userId, profile, checkin: normal, today }, { ai });
   assert.equal(ai.calls.length, 2);
-  assert.equal(out.recommendation.headline, FALLBACK_MESSAGE);
+  assert.equal((await getCheckin(out.checkinId)).source, 'mock-fallback');
 });
 
 test('hormonal contraception (case 9): no phase is sent or returned', async () => {
@@ -197,7 +209,7 @@ test('an answer longer than planned → retry once → fallback if it happens ag
   const twice = fakeAi(tooLong, { ...good, prescription: '3 miles easy, then 6 strides (effort 4/10).' }); // strides on energy 2
   const out2 = await runCheckin({ userId, profile, checkin: normal, today }, { ai: twice });
   assert.equal(twice.calls.length, 2);
-  assert.equal(out2.recommendation.headline, FALLBACK_MESSAGE);
+  assert.equal((await getCheckin(out2.checkinId)).source, 'mock-fallback');
 });
 
 test('the AI hears "energy dips before her period" only when the period is expected within ~5 days', async () => {
@@ -225,4 +237,18 @@ test('the AI hears "cramps affect her workouts" only on a day she reports cramps
   const crampsDay = fakeAi({ ...good, extra_tip: 'Resting is just as good a choice today.' });
   await runCheckin({ userId, profile, checkin: { ...normal, symptoms: ['cramps'], crampsUnusual: false }, today }, { ai: crampsDay });
   assert.match(crampsDay.calls[0].user, /Cramps usually affect her workouts: sometimes/);
+});
+
+test('the real rough-day answer that fell back (37-word reason) now passes the length check', async () => {
+  const roughCramps = { workout: { type: 'run', amount: 3, unit: 'miles', kind: 'tempo' }, energy: 2, sleep: 'poor', symptoms: ['cramps', 'bloating'], crampsUnusual: false, soreness: null };
+  const answer = {
+    verdict: 'ADJUST', headline: 'Easy 2 miles instead of 3-mile tempo',
+    prescription: "Choose one: 2 easy miles at effort 3/10 with a chatty pace, then 5 minutes of gentle hip and hamstring stretching, or rest today with a 10-minute easy walk if you'd rather.",
+    reason: 'Energy is low at 2/5, sleep was poor, and you have cramps, so gentle movement or rest will feel better than a hard tempo effort. You mentioned cramps sometimes affect your workouts, so easing in makes sense.',
+    extra_tip: '',
+  };
+  const ai = fakeAi(answer);
+  const out = await runCheckin({ userId, profile, checkin: roughCramps, today }, { ai });
+  assert.equal(ai.calls.length, 1);
+  assert.equal((await getCheckin(out.checkinId)).source, 'ai'); // accepted on the first try
 });

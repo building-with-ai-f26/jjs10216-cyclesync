@@ -8,7 +8,7 @@ How CycleSync turns a morning check-in into one workout recommendation. Grounded
 2. **Safety screen in code** (section 3). Deterministic rules, no AI. If any rule fires, show its fixed message and stop. The AI is never called.
 3. **Build context**: cycle day, estimated phase (or none), her onboarding patterns, today's inputs.
 4. **Call the AI** with the instructions in section 5 and require the JSON output in section 6.
-5. **Validate the output in code** (section 7). If it fails, retry once, telling the AI which checks its answer broke; if it fails again, show a safe fallback ("Go with an easy version of your planned workout and listen to your body today").
+5. **Validate the output in code** (section 7). If it fails, retry once, telling the AI which checks its answer broke; if it fails again, show the mock coach's rule-based recommendation (saved as source "mock-fallback") if it passes the same checks, otherwise a safe fallback ("Go with an easy version of your planned workout and listen to your body today").
 6. **Save** the check-in, the recommendation and her response (Do this / Original plan / Something else / Rest), each with a check-in ID so a post-workout rating can attach to it later (section 9).
 
 ## 2. Inputs
@@ -92,7 +92,7 @@ Note: the numbers in rules 6 and 7 are coaching heuristics chosen for the produc
 - If cramps were reported, `verdict` is not KEEP with a hard session (tempo, intervals, HIIT, heavy lifting).
 - The prescription is never longer (distance or time) or harder (effort, or a harder session type such as tempo, intervals, sprints or heavy lifting) than the planned workout, and adds no extras. Warm-up, cool-down, stretching, mobility and walking time don't count as longer.
 - The only allowed extras are on a great day (energy 4 or 5, good sleep, no significant symptoms (bloating alone is fine), soreness no more than some), labeled "optional", one per card: runs, 4-6 short strides; strength, one extra set or effort up by 1 point (a light session never becomes heavy); classes, the harder option on one round.
-- Length: prescription at most 2 sentences and about 35 words (checked at 40); reason at most 2 sentences and 35 words; tip 1 sentence and 25 words.
+- Length (with some slack over what rule 9 asks for): prescription at most 3 short sentences and 45 words; reason at most 2 sentences and 45 words; tip 1 sentence and 30 words.
 - Hydration tips only for long runs or estimated luteal days.
 - Wording fits the workout type (no pace, miles, km, strides or tempo for strength; no miles, km or strides for classes).
 - If soreness was skipped, the card doesn't mention soreness.

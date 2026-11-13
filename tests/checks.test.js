@@ -259,11 +259,14 @@ test('walk or yoga: no extras even on a great day', () => {
 });
 
 // ---------- Length (rule 9) ----------
-test('length: prescription ≤ 2 sentences / ~35 words, reason ≤ 2 short sentences, tip 1 sentence', () => {
+test('length: prescription ≤ 3 short sentences / 45 words, reason ≤ 2 sentences / 45 words, tip 1 sentence / 30 words', () => {
   const plan = day(run(5, 'miles', 'easy'));
-  const long = 'Run 3 miles at an easy effort (4/10), keeping it relaxed the whole way and focusing on smooth breathing, then walk for five minutes and stretch your calves, hips and hamstrings gently and slowly before heading back inside to rest and recover for the day.';
+  const long = 'Run 3 miles at an easy effort (4/10), keeping it relaxed the whole way and focusing on smooth breathing, then walk for five minutes and stretch your calves, hips and hamstrings gently and slowly before heading back inside to rest and recover for the day, making sure to drink some water and eat a good snack when you get home.';
   assert.match(checkOutput({ ...good, prescription: long }, plan).errors.join(), /prescription too long/);
-  assert.match(checkOutput({ ...good, prescription: '3 miles easy (effort 4/10). Walk after. Stretch.' }, plan).errors.join(), /prescription too long \(3 sentences/);
+  assert.match(checkOutput({ ...good, prescription: '3 miles easy (effort 4/10). Walk after. Stretch. Rest.' }, plan).errors.join(), /prescription too long \(4 sentences/);
+  assert.equal(checkOutput({ ...good, prescription: '3 miles easy (effort 4/10). Walk after. Stretch.' }, plan).ok, true); // 3 short sentences are fine
+  const reason37 = 'Energy is low at 2/5, sleep was poor, and you have cramps, so gentle movement or rest will feel better than a hard tempo effort. You mentioned cramps sometimes affect your workouts, so easing in makes sense.';
+  assert.equal(checkOutput({ ...good, reason: reason37 }, plan).ok, true); // the real 37-word reason that caused a fallback
   assert.match(checkOutput({ ...good, reason: 'Low energy. Poor sleep. Go easy.' }, plan).errors.join(), /reason too long/);
   assert.match(checkOutput({ ...good, extra_tip: 'Warm up well. Then go.' }, plan).errors.join(), /extra_tip too long/);
   assert.equal(checkOutput({ ...good, prescription: '1.5 miles easy (effort 4/10), then 5 minutes of walking.' }, plan).ok, true); // "1.5" isn't a sentence break
