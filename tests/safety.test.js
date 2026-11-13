@@ -9,7 +9,7 @@ import { validateCheckin } from '../lib/checkin.js';
 
 // Exact wording from research/recommendation-spec.md section 3.
 const HEAVY = 'That sounds like heavier bleeding than usual. Please check in with a doctor before training today, and rest is a good call.';
-const PAIN = "Severe pain that isn't easing is worth a call to your doctor. Skip training today.";
+const CRAMPS = "That sounds different from your usual cramps. It's worth checking in with your doctor, and resting today is a good call.";
 
 const allNo = { soakingHourly: false, over7Days: false, largeClots: false, dizzyOrBreathless: false };
 const base = {
@@ -28,7 +28,7 @@ function screen(checkin) {
 
 test('messages match the spec word for word', () => {
   assert.equal(SAFETY_MESSAGES.heavy_bleeding, HEAVY);
-  assert.equal(SAFETY_MESSAGES.severe_pain, PAIN);
+  assert.equal(SAFETY_MESSAGES.unusual_cramps, CRAMPS);
 });
 
 for (const sign of Object.keys(allNo)) {
@@ -45,14 +45,14 @@ test('heavy flow with all four signs = yes → one heavy-bleeding message', () =
   assert.equal(r.rules[0].message, HEAVY);
 });
 
-test('cramps + severe pain not easing → severe-pain message', () => {
-  const r = screen({ ...base, symptoms: ['cramps'], severePainNotEasing: true });
-  assert.deepEqual(r, { stop: true, rules: [{ rule: 'severe_pain', message: PAIN }] });
+test('cramps "Yes" (worse than usual / no relief / fever or vomiting) → unusual-cramps message', () => {
+  const r = screen({ ...base, symptoms: ['cramps'], crampsUnusual: true });
+  assert.deepEqual(r, { stop: true, rules: [{ rule: 'unusual_cramps', message: CRAMPS }] });
 });
 
 test('both rules fire → both messages, in the spec\'s order', () => {
-  const r = screen({ ...base, symptoms: ['cramps', 'heavy_flow'], severePainNotEasing: true, heavyFlow: { ...allNo, largeClots: true } });
-  assert.deepEqual(r.rules.map((x) => x.rule), ['heavy_bleeding', 'severe_pain']);
+  const r = screen({ ...base, symptoms: ['cramps', 'heavy_flow'], crampsUnusual: true, heavyFlow: { ...allNo, largeClots: true } });
+  assert.deepEqual(r.rules.map((x) => x.rule), ['heavy_bleeding', 'unusual_cramps']);
 });
 
 test('normal check-in passes through (no safety message)', () => {
@@ -63,8 +63,8 @@ test('heavy flow with every sign "no" ("None of these") passes through', () => {
   assert.equal(screen({ ...base, symptoms: ['heavy_flow'], heavyFlow: allNo }), null);
 });
 
-test('cramps that are not severe pass through', () => {
-  assert.equal(screen({ ...base, symptoms: ['cramps'], severePainNotEasing: false }), null);
+test('cramps "No, it\'s my usual" pass through to the normal result', () => {
+  assert.equal(screen({ ...base, symptoms: ['cramps'], crampsUnusual: false }), null);
 });
 
 test('other symptoms (bloating, headache, tired) pass through', () => {
@@ -73,9 +73,9 @@ test('other symptoms (bloating, headache, tired) pass through', () => {
 
 test('only an explicit yes counts (follow-ups for unpicked symptoms are ignored)', () => {
   // validateCheckin drops follow-ups whose symptom wasn't picked, so these can't fire.
-  assert.equal(screen({ ...base, symptoms: ['none'], severePainNotEasing: true, heavyFlow: { ...allNo, soakingHourly: true } }), null);
+  assert.equal(screen({ ...base, symptoms: ['none'], crampsUnusual: true, heavyFlow: { ...allNo, soakingHourly: true } }), null);
   // And the rule file itself ignores them too, even if handed raw input.
-  assert.equal(safetyScreen({ symptoms: ['bloating'], severePainNotEasing: true }), null);
+  assert.equal(safetyScreen({ symptoms: ['bloating'], crampsUnusual: true }), null);
 });
 
 test('the Build 3 rules are not in Build 2: heavy flow + tired with no signs passes through', () => {
@@ -108,9 +108,9 @@ test('API: soaking hourly → only the safety message comes back, no workout', a
   assert.deepEqual(data, { ok: true, safety: [{ rule: 'heavy_bleeding', message: HEAVY }] });
 });
 
-test('API: severe pain → only the safety message comes back, no workout', async () => {
-  const { data } = await send({ ...base, symptoms: ['cramps'], severePainNotEasing: true });
-  assert.deepEqual(data, { ok: true, safety: [{ rule: 'severe_pain', message: PAIN }] });
+test('API: unusual cramps → only the safety message comes back, no workout', async () => {
+  const { data } = await send({ ...base, symptoms: ['cramps'], crampsUnusual: true });
+  assert.deepEqual(data, { ok: true, safety: [{ rule: 'unusual_cramps', message: CRAMPS }] });
 });
 
 test('API: normal check-in → no safety message', async () => {

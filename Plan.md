@@ -113,7 +113,7 @@ Each step is one small commit, per AGENTS.md.
 | --- | --- | --- |
 | 1 | **Skeleton:** `package.json`, `server.js`, a "Hello CycleSync" page, `.env.example` updated, `data/` added to `.gitignore`. | Run `npm run dev`, open `http://localhost:3000`, and see the page. |
 | 2 | **Onboarding screen** (§2): last period start, typical cycle length (default 28), hormonal contraception (yes / no / prefer not to say), 2–3 pattern questions, usual workout days, goal. Saved through `api/onboarding.js` → `lib/db.js`. | Fill it in, then open `data/cyclesync-db.json` and see your answers under a random ID. |
-| 3 | **Check-in screen** (§2): workout type + one detail, energy 1–5, sleep, symptoms (multi), optional soreness. Heavy-flow follow-ups appear only if "heavy flow" is tapped; the severe-pain question appears only if "cramps" is tapped. Plus a "My period started" button. | Tap through in a phone-sized browser; follow-ups appear and disappear correctly. |
+| 3 | **Check-in screen** (§2): workout type + one detail, energy 1–5, sleep, symptoms (multi), optional soreness. Heavy-flow follow-ups appear only if "heavy flow" is tapped; the cramps follow-up (worse than usual / no relief / fever or vomiting) appears only if "cramps" is tapped. Plus a "My period started" button. | Tap through in a phone-sized browser; follow-ups appear and disappear correctly. |
 | 4 | **Cycle day + estimated phase** (`lib/cycle.js`, §4) with automated tests. Three labels only: menstrual, follicular, luteal. No phase for hormonal contraception, "prefer not to say", or a late period. | `npm test` passes; the screen shows e.g. "Day 22 · est. luteal", or "Day 34" plus the "My period started" button when late. |
 | 5 | **Safety screen** (`lib/safety.js`, §3) with automated tests, wired to show the fixed safety message. | `npm test` passes; tapping heavy flow + "soaking hourly" shows the doctor message, no workout. |
 | 6 | **Mock AI + full pipeline + output checks** (`lib/ai.js` mock, `lib/checks.js`, `lib/pipeline.js`), the recommendation card (verdict, headline, prescription, reason, optional tip, cycle day/phase), and the four response buttons. Every check-in saved with an ID; the response is attached to it. | `npm test` passes; full flow works in mock mode; the data file shows the check-in, recommendation and response linked by one ID. |
@@ -154,7 +154,7 @@ Each step is one small commit, per AGENTS.md.
 All of these are automated (`npm test`) and run in mock mode, so they cost nothing.
 
 **Safety screen (`tests/safety.test.js`, `tests/pipeline.test.js`):**
-- One test per §3 trigger: each of the 4 heavy-flow follow-ups answered "yes" → heavy-bleeding message; severe pain not easing → severe-pain message.
+- One test per §3 trigger: each of the 4 heavy-flow follow-ups answered "yes" → heavy-bleeding message; cramps follow-up "Yes" → unusual-cramps message; "No, it's my usual" → no safety message.
 - Messages match the §3 wording exactly (copy is fixed in code).
 - Normal check-ins, and heavy flow with all follow-ups "no", → no safety message.
 - **"The AI is never called" is tested directly:** the pipeline test passes in a fake AI that records whether it was called, and asserts it wasn't for every safety case (§8 cases 1–2).

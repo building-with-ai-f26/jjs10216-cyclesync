@@ -293,7 +293,7 @@ function stepList() {
   const crampsFirst = asksCrampsFirst();
   if (crampsFirst) {
     steps.push('crampsFirst');
-    if (radioValue(f, 'crampsToday') === 'yes') steps.push('severePain');
+    if (radioValue(f, 'crampsToday') === 'yes') steps.push('crampsCheck');
   }
 
   steps.push('workout');
@@ -307,7 +307,7 @@ function stepList() {
   const symptoms = checkedValues(f, 'symptoms');
   if (symptoms.includes('heavy_flow')) steps.push('heavyFlow');
   // Cramps picked here (and not already asked about up front): ask about severity now.
-  if (symptoms.includes('cramps') && !steps.includes('severePain')) steps.push('severePain');
+  if (symptoms.includes('cramps') && !steps.includes('crampsCheck')) steps.push('crampsCheck');
 
   steps.push('soreness');
   return steps;
@@ -318,7 +318,7 @@ function isAnswered(step) {
   const f = checkinForm;
   switch (step) {
     case 'crampsFirst': return radioValue(f, 'crampsToday') !== null;
-    case 'severePain': return radioValue(f, 'severePainNotEasing') !== null;
+    case 'crampsCheck': return radioValue(f, 'crampsUnusual') !== null;
     case 'workout': return radioValue(f, 'workoutType') !== null;
     case 'runAmount': return Number(f.runAmount.value) > 0 && radioValue(f, 'runUnit') !== null;
     case 'runKind': return radioValue(f, 'runKind') !== null;
@@ -480,7 +480,7 @@ function readCheckin() {
     soreness: radioValue(f, 'soreness'),
   };
   if (symptoms.includes('heavy_flow')) checkin.heavyFlow = heavyFlowAnswers(checkedValues(f, 'heavyFlowSigns'));
-  if (symptoms.includes('cramps')) checkin.severePainNotEasing = yesNo('severePainNotEasing');
+  if (symptoms.includes('cramps')) checkin.crampsUnusual = yesNo('crampsUnusual');
   return checkin;
 }
 

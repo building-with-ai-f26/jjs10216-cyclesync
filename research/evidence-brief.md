@@ -60,7 +60,7 @@ If nutrition is ever added: gentle, food-first, never calorie targets. A slightl
 - Bleeding that soaks a pad or tampon every hour for more than two hours, bleeding longer than a week, clots larger than a quarter, or fatigue or shortness of breath from blood loss: suggest seeing a doctor, no workout advice (Mayo Clinic).
 - Heavy periods plus ongoing fatigue: suggest asking a doctor about an iron check.
 - Missed periods for 3 or more months, or cycles over 35 days: gently suggest a doctor visit, since this can signal under-fueling.
-- Severe pain that doesn't ease: suggest a doctor, not a workout tweak.
+- Cramps that are worse than her usual, not helped by pain relief, or come with fever or vomiting: suggest a doctor, not a workout tweak. Bad but typical cramps don't trigger this; they get the normal cramp-day advice (gentle movement or rest as equal options).
 
 Open: have a sports medicine or women's health professional review these rules.
 

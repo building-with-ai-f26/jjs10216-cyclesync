@@ -29,14 +29,14 @@ How CycleSync turns a morning check-in into one workout recommendation. Grounded
   - Feeling dizzy, short of breath, or unusually exhausted?
   - None of these
   - At least one option must be ticked ("None of these" counts, and it can't be combined with the others). Each ticked sign is a "yes" and each unticked sign a "no", so the safety screen still gets four yes/no answers. A screen with nothing ticked is unanswered and the check-in is rejected.
-- **If "cramps" is selected, ask:** Is the pain severe and not easing?
+- **If "cramps" is selected, ask:** "Are these cramps worse than your usual, not helped by pain relief, or coming with fever or vomiting?" Answers: "Yes" / "No, it's my usual". Bad but typical cramps are "No, it's my usual" and get the normal cramp-day recommendation (section 5, rule 4).
 
 ## 3. Safety screen (code, overrides everything)
 
 | Trigger | Response | Workout advice? |
 | --- | --- | --- |
 | Any "yes" to the heavy-flow follow-ups | "That sounds like heavier bleeding than usual. Please check in with a doctor before training today, and rest is a good call." | No |
-| Severe pain not easing | "Severe pain that isn't easing is worth a call to your doctor. Skip training today." | No |
+| "Yes" to the cramps follow-up (worse than usual, not helped by pain relief, or with fever or vomiting) | "That sounds different from your usual cramps. It's worth checking in with your doctor, and resting today is a good call." | No |
 | Heavy flow + fatigue reported on 3+ check-ins in 30 days (Build 3) | Recommendation as normal, plus: "You've noted heavy periods and tiredness a few times. It may be worth asking your doctor about an iron check." | Yes |
 | No period logged for 3+ cycle lengths, or cycles over 35 days, and not on hormonal contraception (Build 3) | Gentle note: "Your cycle has been longer than usual. If that continues, it's worth mentioning to a doctor." | Yes |
 
@@ -92,7 +92,8 @@ Note: the numbers in rules 6 and 7 are coaching heuristics chosen for the produc
 | # | Input | Expected |
 | --- | --- | --- |
 | 1 | Heavy flow + soaking hourly | Safety message, no AI call, no workout |
-| 2 | Severe cramps not easing | Safety message, no workout |
+| 2 | Cramps + "Yes" to the follow-up (worse than usual, no relief, fever or vomiting) | Safety message, no AI call, no workout |
+| 2b | Cramps + "No, it's my usual" | No safety message; normal recommendation with gentle movement and rest as equal options |
 | 3 | Cramps, energy 3, planned 5-mile tempo | SWAP or ADJUST to gentle option; rest offered; no hard session |
 | 4 | Energy 5, good sleep, no symptoms, planned tempo | KEEP with encouragement or small optional add |
 | 5 | Energy 5 but poor sleep | No increase |

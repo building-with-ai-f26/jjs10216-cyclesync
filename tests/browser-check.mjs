@@ -6,7 +6,7 @@
 //   isn't in /Applications.
 // - Starts its own server on port 3131 with a TEMPORARY data file, so your
 //   real data/cyclesync-db.json is never touched.
-// - Covers the safety screen: heavy flow + a warning sign, severe pain, and a
+// - Covers the safety screen: heavy flow + a warning sign, unusual cramps, and a
 //   normal check-in that passes through.
 // - Saves screenshots to a temporary folder and prints where.
 // - Not part of `npm test` (that stays fast and browser-free).
@@ -108,7 +108,7 @@ function iso(daysFromToday) {
 }
 // Exact wording from research/recommendation-spec.md section 3.
 const HEAVY_MSG = 'That sounds like heavier bleeding than usual. Please check in with a doctor before training today, and rest is a good call.';
-const PAIN_MSG = "Severe pain that isn't easing is worth a call to your doctor. Skip training today.";
+const CRAMPS_MSG = "That sounds different from your usual cramps. It's worth checking in with your doctor, and resting today is a good call.";
 const WEEKDAY = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const BASE_PROFILE = {
@@ -173,8 +173,10 @@ try {
 
   check('first question: "Any cramps today?"', (await visibleStep()) === 'crampsFirst', await visibleStep());
   await tap('crampsToday', 'yes');
-  check('"Yes" → asks if the cramps are severe', (await visibleStep()) === 'severePain', await visibleStep());
-  await tap('severePainNotEasing', 'no');
+  check('"Yes" → asks if the cramps are unusual', (await visibleStep()) === 'crampsCheck', await visibleStep());
+  check('it asks the new cramps question with "Yes" / "No, it\'s my usual"',
+    (await js(`const s = document.querySelector('[data-step="crampsCheck"]'); return s.querySelector('.step-q').textContent.trim() + ' | ' + [...s.querySelectorAll('.chip span')].map((x) => x.textContent).join(' / ')`)) === `Are these cramps worse than your usual, not helped by pain relief, or coming with fever or vomiting? | Yes / No, it's my usual`);
+  await tap('crampsUnusual', 'no');
   check('→ "What\'s on the plan today?"', (await visibleStep()) === 'workout', await visibleStep());
   await tap('workoutType', 'run');
   check('Run → "How far or how long?"', (await visibleStep()) === 'runAmount', await visibleStep());
@@ -225,7 +227,7 @@ try {
   check('soreness skipped is fine; soaking hourly → the safety screen', await isShown('screen-safety'));
   check('it shows the heavy-bleeding message, word for word',
     (await text('safety-messages')) === HEAVY_MSG, await text('safety-messages'));
-  check('only that one message (cramps were not severe)', (await js(`return document.querySelectorAll('#safety-messages p').length`)) === 1);
+  check('only that one message (cramps were "my usual")', (await js(`return document.querySelectorAll('#safety-messages p').length`)) === 1);
   check('no recommendation screen', !(await isShown('screen-received')));
   check('safety screen is hidden from PostHog replays', await js(`return document.getElementById('screen-safety').classList.contains('ph-no-capture')`));
   await shot('4b-safety-heavy');
@@ -279,17 +281,17 @@ try {
   await tap('symptoms', 'cramps');
   check('ticking cramps clears "Nothing, I feel good"', !(await isChecked('symptoms', 'none')));
   await clickNext('symptoms');
-  check('cramps ticked here → severity asked after symptoms', (await visibleStep()) === 'severePain', await visibleStep());
-  await tap('severePainNotEasing', 'yes');
-  check('"Yes, they\'re bad" → soreness', (await visibleStep()) === 'soreness', await visibleStep());
+  check('cramps ticked here → cramps follow-up asked after symptoms', (await visibleStep()) === 'crampsCheck', await visibleStep());
+  await tap('crampsUnusual', 'yes');
+  check('"Yes" → soreness', (await visibleStep()) === 'soreness', await visibleStep());
   await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
   await waitFor(() => isShown('screen-safety'));
-  console.log('\n— Safety screen: severe pain not easing —');
-  check('severe pain → the safety screen', await isShown('screen-safety'));
-  check('it shows the severe-pain message, word for word',
-    (await text('safety-messages')) === PAIN_MSG, await text('safety-messages'));
+  console.log('\n— Safety screen: unusual cramps —');
+  check('cramps "Yes" → the safety screen', await isShown('screen-safety'));
+  check('it shows the unusual-cramps message, word for word',
+    (await text('safety-messages')) === CRAMPS_MSG, await text('safety-messages'));
   check('no recommendation screen', !(await isShown('screen-received')));
-  await shot('6b-safety-pain');
+  await shot('6b-safety-cramps');
   await click('safety-back');
   check('"Back to check-in" → a fresh check-in', (await isShown('screen-checkin')) && (await visibleStep()) === 'workout', await visibleStep());
 
@@ -301,6 +303,19 @@ try {
   await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
   await waitFor(() => isShown('screen-received'));
   check('no symptoms → past the safety screen to "Check-in received"', (await isShown('screen-received')) && !(await isShown('screen-safety')));
+
+  console.log('\n— Cramps, "No, it\'s my usual" passes through —');
+  await click('back-to-checkin');
+  await tap('workoutType', 'walk_yoga');
+  await tap('energy', '3');
+  await tap('sleep', 'ok');
+  await tap('symptoms', 'cramps');
+  await clickNext('symptoms');
+  await tap('crampsUnusual', 'no');
+  check('"No, it\'s my usual" → soreness', (await visibleStep()) === 'soreness', await visibleStep());
+  await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
+  await waitFor(() => isShown('screen-received'));
+  check('usual cramps → normal result, no doctor message', (await isShown('screen-received')) && !(await isShown('screen-safety')));
 
   // ===== 3. Late period =====
   console.log('\n— Day 37 of a 28-day cycle (late) —');

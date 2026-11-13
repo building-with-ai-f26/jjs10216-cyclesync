@@ -52,7 +52,7 @@ for (const [label, change] of [
   ['unknown sleep', { sleep: 'great' }],
   ['no symptoms picked', { symptoms: [] }],
   ['unknown symptom', { symptoms: ['sneezing'] }],
-  ['"none" plus a symptom', { symptoms: ['none', 'cramps'], severePainNotEasing: false }],
+  ['"none" plus a symptom', { symptoms: ['none', 'cramps'], crampsUnusual: false }],
   ['unknown soreness', { soreness: 'extreme' }],
 ]) {
   test(`rejects: ${label}`, () => {
@@ -81,18 +81,18 @@ test('heavy flow: keeps the follow-up answers', () => {
   assert.deepEqual(r.checkin.heavyFlow, { ...allNo, soakingHourly: true });
 });
 
-test('cramps: rejected unless the severe-pain question is answered', () => {
+test('cramps: rejected unless the cramps follow-up is answered', () => {
   assert.equal(validateCheckin({ ...base, symptoms: ['cramps'] }).ok, false);
-  const r = validateCheckin({ ...base, symptoms: ['cramps'], severePainNotEasing: true });
+  const r = validateCheckin({ ...base, symptoms: ['cramps'], crampsUnusual: true });
   assert.equal(r.ok, true);
-  assert.equal(r.checkin.severePainNotEasing, true);
+  assert.equal(r.checkin.crampsUnusual, true);
 });
 
 test('follow-ups are dropped when their symptom was not picked', () => {
-  const r = validateCheckin({ ...base, symptoms: ['bloating'], heavyFlow: allNo, severePainNotEasing: true });
+  const r = validateCheckin({ ...base, symptoms: ['bloating'], heavyFlow: allNo, crampsUnusual: true });
   assert.equal(r.ok, true);
   assert.equal(r.checkin.heavyFlow, undefined);
-  assert.equal(r.checkin.severePainNotEasing, undefined);
+  assert.equal(r.checkin.crampsUnusual, undefined);
 });
 
 test('symptoms come back in a fixed order without duplicates', () => {
