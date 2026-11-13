@@ -1,9 +1,12 @@
 // POST /api/checkin  { userId, checkin }
-// Step 3 (for now): checks the answers and sends them back. Nothing is saved yet.
-// Step 6 replaces this with the full pipeline: safety screen → AI → checks → save.
+// Step 5 (for now): checks the answers, then runs the safety screen.
+//   - A safety rule fires → { ok, safety: [{ rule, message }] }. Nothing else runs.
+//   - No rule fires       → { ok, checkin }  (step 6 adds the AI recommendation here)
+// Step 6 also saves every check-in with an ID.
 import { getProfile } from '../lib/db.js';
 import { isValidUserId } from '../lib/profile.js';
 import { validateCheckin } from '../lib/checkin.js';
+import { safetyScreen } from '../lib/safety.js';
 
 export async function POST(request) {
   let body;
@@ -17,6 +20,11 @@ export async function POST(request) {
 
   const result = validateCheckin(body.checkin);
   if (!result.ok) return error(400, result.error);
+
+  // Safety screen FIRST (spec section 3). If it fires, stop here: no workout
+  // advice, and the AI must never be called.
+  const safety = safetyScreen(result.checkin);
+  if (safety) return Response.json({ ok: true, safety: safety.rules });
 
   return Response.json({ ok: true, checkin: result.checkin });
 }

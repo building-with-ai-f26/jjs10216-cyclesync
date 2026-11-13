@@ -296,6 +296,14 @@
       </form>
     </section>
 
+    <!-- SAFETY MESSAGE (spec section 3). Text comes from lib/safety.js on the server.
+         No workout advice on this screen. ph-no-capture keeps it out of PostHog. -->
+    <section id="screen-safety" class="ph-no-capture" hidden>
+      <h1>Thanks for checking in.</h1>
+      <div id="safety-messages" class="safety-box" role="alert"></div>
+      <button type="button" id="safety-back" class="btn btn-secondary">Back to check-in</button>
+    </section>
+
     <!-- CHECK-IN RECEIVED (placeholder until the recommendation card is built in step 6) -->
     <section id="screen-received" hidden>
       <h1>Check-in received</h1>

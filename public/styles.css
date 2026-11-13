@@ -265,6 +265,15 @@ input[type="number"] { width: 6em; }
 
 .care { color: var(--care); }
 
+.safety-box {
+  margin: 0 0 20px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--care-soft);
+}
+.safety-msg { margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--care); line-height: 1.45; }
+.safety-msg + .safety-msg { margin-top: 12px; }
+
 .footer-links { margin-top: 16px; }
 .footer-links .link-btn { margin-top: 0; }
 

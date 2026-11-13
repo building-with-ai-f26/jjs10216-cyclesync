@@ -512,6 +512,12 @@ checkinForm.addEventListener('submit', async (event) => {
       errorBox.hidden = false;
       return;
     }
+    // The server ran the safety screen. If a rule fired, show only its fixed
+    // message(s): no workout advice, and no recommendation.
+    if (data.safety) {
+      showSafety(data.safety);
+      return;
+    }
     showScreen('received');
   } catch {
     errorBox.textContent = 'Could not reach the server. Is it running?';
@@ -519,6 +525,24 @@ checkinForm.addEventListener('submit', async (event) => {
   } finally {
     button.disabled = false;
   }
+});
+
+// Safety messages are plain text from the server (textContent, never HTML).
+function showSafety(rules) {
+  const box = $('safety-messages');
+  box.replaceChildren();
+  for (const { message } of rules) {
+    const p = document.createElement('p');
+    p.className = 'safety-msg';
+    p.textContent = message;
+    box.append(p);
+  }
+  showScreen('safety');
+}
+
+$('safety-back').addEventListener('click', () => {
+  resetCheckin();
+  showScreen('checkin');
 });
 
 $('back-to-checkin').addEventListener('click', () => {

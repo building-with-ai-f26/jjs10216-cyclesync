@@ -6,6 +6,8 @@
 //   isn't in /Applications.
 // - Starts its own server on port 3131 with a TEMPORARY data file, so your
 //   real data/cyclesync-db.json is never touched.
+// - Covers the safety screen: heavy flow + a warning sign, severe pain, and a
+//   normal check-in that passes through.
 // - Saves screenshots to a temporary folder and prints where.
 // - Not part of `npm test` (that stays fast and browser-free).
 
@@ -104,6 +106,9 @@ function iso(daysFromToday) {
   d.setDate(d.getDate() + daysFromToday);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+// Exact wording from research/recommendation-spec.md section 3.
+const HEAVY_MSG = 'That sounds like heavier bleeding than usual. Please check in with a doctor before training today, and rest is a good call.';
+const PAIN_MSG = "Severe pain that isn't easing is worth a call to your doctor. Skip training today.";
 const WEEKDAY = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const BASE_PROFILE = {
@@ -215,12 +220,19 @@ try {
   check('Next → soreness', (await visibleStep()) === 'soreness', await visibleStep());
   await shot('4-soreness');
   await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
-  await waitFor(() => isShown('screen-received'));
-  check('soreness skipped → "Get my recommendation" accepted by the server', await isShown('screen-received'));
+  await waitFor(() => isShown('screen-safety'));
+  console.log('\n— Safety screen: heavy flow + soaking hourly —');
+  check('soreness skipped is fine; soaking hourly → the safety screen', await isShown('screen-safety'));
+  check('it shows the heavy-bleeding message, word for word',
+    (await text('safety-messages')) === HEAVY_MSG, await text('safety-messages'));
+  check('only that one message (cramps were not severe)', (await js(`return document.querySelectorAll('#safety-messages p').length`)) === 1);
+  check('no recommendation screen', !(await isShown('screen-received')));
+  check('safety screen is hidden from PostHog replays', await js(`return document.getElementById('screen-safety').classList.contains('ph-no-capture')`));
+  await shot('4b-safety-heavy');
 
   // Update my cycle
   console.log('\n— Update my cycle —');
-  await click('back-to-checkin');
+  await click('safety-back');
   check('back to a fresh check-in', (await visibleStep()) === 'crampsFirst', await visibleStep());
   await click('update-cycle');
   check('"Update my cycle" opens its screen', await isShown('screen-cycle'));
@@ -268,6 +280,27 @@ try {
   check('ticking cramps clears "Nothing, I feel good"', !(await isChecked('symptoms', 'none')));
   await clickNext('symptoms');
   check('cramps ticked here → severity asked after symptoms', (await visibleStep()) === 'severePain', await visibleStep());
+  await tap('severePainNotEasing', 'yes');
+  check('"Yes, they\'re bad" → soreness', (await visibleStep()) === 'soreness', await visibleStep());
+  await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
+  await waitFor(() => isShown('screen-safety'));
+  console.log('\n— Safety screen: severe pain not easing —');
+  check('severe pain → the safety screen', await isShown('screen-safety'));
+  check('it shows the severe-pain message, word for word',
+    (await text('safety-messages')) === PAIN_MSG, await text('safety-messages'));
+  check('no recommendation screen', !(await isShown('screen-received')));
+  await shot('6b-safety-pain');
+  await click('safety-back');
+  check('"Back to check-in" → a fresh check-in', (await isShown('screen-checkin')) && (await visibleStep()) === 'workout', await visibleStep());
+
+  console.log('\n— Normal check-in passes through —');
+  await tap('workoutType', 'walk_yoga');
+  await tap('energy', '4');
+  await tap('sleep', 'good');
+  await tap('symptoms', 'none');
+  await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
+  await waitFor(() => isShown('screen-received'));
+  check('no symptoms → past the safety screen to "Check-in received"', (await isShown('screen-received')) && !(await isShown('screen-safety')));
 
   // ===== 3. Late period =====
   console.log('\n— Day 37 of a 28-day cycle (late) —');
