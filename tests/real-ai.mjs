@@ -110,6 +110,10 @@ try {
     }
     console.log(`  Section 7 checks: ${passed ? `PASSED${saved.attempts > 1 ? ' (on the retry)' : ' (first try)'}` : 'FAILED twice → fallback'}`);
     for (const [i, f] of (saved.failures ?? []).entries()) console.log(`    attempt ${i + 1} problem: ${f.join('; ')}`);
+    for (const [i, rej] of (saved.rejected ?? []).entries()) {
+      const p = (() => { try { return JSON.parse(rej.text).prescription; } catch { return rej.text; } })();
+      console.log(`    rejected answer ${i + 1} prescription: ${p}`);
+    }
     console.log(`  Matches the spec's expectation: ${meets ? 'yes' : 'NO, look at this one'}`);
     console.log(`  Cost: $${saved.usage.cost.toFixed(6)} (${saved.usage.tokensIn} tokens in, ${saved.usage.tokensOut} out)\n`);
   }

@@ -11,14 +11,14 @@ import { join } from 'node:path';
 const tempo = { type: 'run', amount: 5, unit: 'miles', kind: 'tempo' };
 const ctx = (over = {}) => ({
   workout: tempo, energy: 3, sleep: 'ok', symptoms: ['none'], soreness: null,
-  cycleDay: 10, phase: 'follicular', periodDue: false,
+  cycleDay: 10, phase: 'follicular', periodSoon: false,
   patterns: { energyLowerBeforePeriod: 'no', crampsAffectWorkouts: 'no' }, goal: 'stay_consistent',
   ...over,
 });
 // Run the mock, then the real output checks, as the pipeline does.
 function recommend(over) {
   const c = ctx(over);
-  const result = checkOutput(parseOutput(JSON.stringify(mockRecommendation(c))), { workout: c.workout, symptoms: c.symptoms });
+  const result = checkOutput(parseOutput(JSON.stringify(mockRecommendation(c))), { workout: c.workout, energy: c.energy, sleep: c.sleep, symptoms: c.symptoms, soreness: c.soreness });
   assert.equal(result.ok, true, JSON.stringify(result.errors));
   return result.recommendation;
 }
@@ -97,8 +97,8 @@ test('energy 1 → REST', () => {
   assert.equal(recommend({ energy: 1 }).verdict, 'REST');
 });
 
-test('"you mentioned" energy dips before her period, when due and low', () => {
-  const r = recommend({ energy: 2, periodDue: true, phase: 'luteal', patterns: { energyLowerBeforePeriod: 'yes' } });
+test('"you mentioned" energy dips before her period, when it\'s soon and energy is low', () => {
+  const r = recommend({ energy: 2, periodSoon: true, phase: 'luteal', patterns: { energyLowerBeforePeriod: 'yes' } });
   assert.match(r.reason, /You mentioned your energy/);
 });
 
@@ -114,7 +114,7 @@ test('every combination passes the section 7 checks (case 10)', () => {
   let n = 0;
   for (const workout of workouts) for (const energy of [1, 2, 3, 4, 5]) for (const sleep of ['good', 'ok', 'poor'])
     for (const symptoms of symptomSets) for (const soreness of [null, 'some', 'a_lot']) for (const phase of [null, 'menstrual', 'luteal']) {
-      recommend({ workout, energy, sleep, symptoms, soreness, phase, periodDue: phase === 'luteal', patterns: { energyLowerBeforePeriod: 'yes', crampsAffectWorkouts: 'yes' } });
+      recommend({ workout, energy, sleep, symptoms, soreness, phase, periodSoon: phase === 'luteal', patterns: { energyLowerBeforePeriod: 'yes', crampsAffectWorkouts: 'yes' } });
       n++;
     }
   assert.equal(n, 9720); // 12 workouts × 5 energy × 3 sleep × 6 symptom sets × 3 soreness × 3 phases
@@ -145,4 +145,31 @@ test('workouts in plain words', () => {
   assert.equal(describeWorkout({ type: 'run', amount: 30, unit: 'minutes', kind: 'easy' }), '30-minute easy run');
   assert.equal(describeWorkout({ type: 'strength', focus: 'lower', load: 'heavy' }), 'heavy lower-body session');
   assert.equal(describeWorkout({ type: 'class', classType: 'hiit' }), 'HIIT class');
+});
+
+test('no "energy dips before your period" when the period is not soon', () => {
+  const r = recommend({ energy: 2, periodSoon: false, phase: 'luteal', patterns: { energyLowerBeforePeriod: 'yes' } });
+  assert.doesNotMatch(r.reason, /before your period/);
+});
+
+test('great day on strength, class or walk: KEEP with no extras (strides are runs only)', () => {
+  for (const workout of [{ type: 'strength', focus: 'full', load: 'light' }, { type: 'class', classType: 'pilates' }, { type: 'walk_yoga' }]) {
+    const r = recommend({ workout, energy: 5, sleep: 'good' });
+    assert.equal(r.verdict, 'KEEP');
+    assert.doesNotMatch(r.prescription, /extra|optional|stride/i, workout.type);
+  }
+});
+
+test('the system prompt never contains the word "ovulation" (spec section 4)', () => {
+  assert.doesNotMatch(SYSTEM_PROMPT, /ovulat/i);
+});
+
+test('the period pattern is only sent when the period is expected within about 5 days', () => {
+  const patterns = { energyLowerBeforePeriod: 'yes', crampsAffectWorkouts: 'sometimes' };
+  const soon = buildUserMessage(ctx({ periodSoon: true, phase: 'luteal', patterns }));
+  assert.match(soon, /Energy usually lower in the days before her period: yes/);
+  assert.match(soon, /expected within about 5 days/);
+  const notSoon = buildUserMessage(ctx({ periodSoon: false, phase: 'luteal', patterns }));
+  assert.doesNotMatch(notSoon, /before her period|expected within/);
+  assert.match(notSoon, /Cramps usually affect her workouts: sometimes/); // the cramps pattern is still sent
 });

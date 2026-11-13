@@ -184,3 +184,27 @@ test("API: a wrong or missing today's date is rejected", async () => {
   assert.equal((await post(checkinApi, { userId, checkin: normal })).status, 400);
   assert.equal((await post(checkinApi, { userId, today: '2020-01-01', checkin: normal })).status, 400);
 });
+
+test('an answer longer than planned → retry once → fallback if it happens again', async () => {
+  const tooLong = { ...good, prescription: '3 miles easy, then 1.5 miles tempo, then 3 miles easy (effort 4/10).' }; // 7.5 > 5
+  const retried = fakeAi(tooLong, good);
+  const out1 = await runCheckin({ userId, profile, checkin: normal, today }, { ai: retried });
+  assert.equal(retried.calls.length, 2);
+  assert.equal(out1.recommendation.headline, 'Easy 3 miles');
+  assert.match((await getCheckin(out1.checkinId)).failures[0].join(), /longer than planned \(7\.5 miles vs 5 planned\)/);
+  assert.deepEqual(JSON.parse((await getCheckin(out1.checkinId)).rejected[0].text), tooLong); // the rejected answer is kept for review
+
+  const twice = fakeAi(tooLong, { ...good, prescription: '3 miles easy, then 6 strides (effort 4/10).' }); // strides on energy 2
+  const out2 = await runCheckin({ userId, profile, checkin: normal, today }, { ai: twice });
+  assert.equal(twice.calls.length, 2);
+  assert.equal(out2.recommendation.headline, FALLBACK_MESSAGE);
+});
+
+test('the AI hears "energy dips before her period" only when the period is expected within ~5 days', async () => {
+  const notSoon = fakeAi(good);
+  await runCheckin({ userId, profile, checkin: normal, today }, { ai: notSoon }); // day 10
+  assert.doesNotMatch(notSoon.calls[0].user, /before her period/);
+  const soon = fakeAi(good);
+  await runCheckin({ userId, profile: { ...profile, lastPeriodStart: daysAgo(24) }, checkin: normal, today }, { ai: soon }); // day 25 of 28
+  assert.match(soon.calls[0].user, /Energy usually lower in the days before her period: yes/);
+});

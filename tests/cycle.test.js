@@ -63,6 +63,16 @@ test('period due in the last 3 days of the cycle', () => {
   assert.equal(cycleContext(natural, dayOf(10)).periodDue, false);
 });
 
+test('period "soon" = expected within about 5 days (days 24-28 of 28), never when late', () => {
+  for (const [day, soon] of [[10, false], [20, false], [23, false], [24, true], [26, true], [28, true], [29, false], [35, false]]) {
+    assert.equal(cycleContext(natural, dayOf(day)).periodSoon, soon, `day ${day}`);
+  }
+  // A 35-day cycle: soon from day 31.
+  const long = { ...natural, cycleLength: 35 };
+  assert.equal(cycleContext(long, dayOf(30)).periodSoon, false);
+  assert.equal(cycleContext(long, dayOf(31)).periodSoon, true);
+});
+
 for (const contraception of ['yes', 'prefer_not_to_say']) {
   test(`contraception "${contraception}": cycle day only, no phase, never due or late`, () => {
     const p = { ...natural, contraception };
@@ -73,6 +83,7 @@ for (const contraception of ['yes', 'prefer_not_to_say']) {
       assert.equal(c.phaseInfo, null);
       assert.equal(c.periodDue, false);
       assert.equal(c.periodLate, false);
+      assert.equal(c.periodSoon, false);
     }
     assert.equal(cycleContext(p, dayOf(3)).isPeriodDay, true);
   });
