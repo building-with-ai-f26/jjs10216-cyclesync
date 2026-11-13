@@ -60,7 +60,7 @@ If nutrition is ever added: gentle, food-first, never calorie targets. A slightl
 - Bleeding that soaks a pad or tampon every hour for more than two hours, bleeding longer than a week, clots larger than a quarter, or fatigue or shortness of breath from blood loss: suggest seeing a doctor, no workout advice (Mayo Clinic).
 - Heavy periods plus ongoing fatigue: suggest asking a doctor about an iron check.
 - Missed periods for 3 or more months, or cycles over 35 days: gently suggest a doctor visit, since this can signal under-fueling.
-- Cramps that are worse than her usual, not helped by pain relief, or come with fever or vomiting: suggest a doctor, not a workout tweak. Bad but typical cramps don't trigger this; they get the normal cramp-day advice (gentle movement or rest as equal options).
+- Cramps that are worse than her usual, not helped by pain relief, or come with fever or vomiting: suggest a doctor, not a workout tweak. Bad but typical cramps don't trigger this; they get the normal cramp-day advice (gentle movement or rest as equal options). Some menstrual pain is normal, and cramps interfere with daily activities in 30% or more of women; reasons to see a doctor include pain not helped by over-the-counter medicine, pain severe enough to cause nausea or vomiting, fever, sudden or new severe pain, and cramps more severe or longer-lasting than usual (NewYork-Presbyterian; MSD Manual).
 
 Open: have a sports medicine or women's health professional review these rules.
 
@@ -81,3 +81,5 @@ Open: have a sports medicine or women's health professional review these rules.
 - Mountjoy M et al. (2023). IOC consensus statement on Relative Energy Deficiency in Sport (REDs). BJSM. https://forening.sls.se/media/a4cl4crj/idrottsnutrition_2023-ioc-consenses-on-red-s-1.pdf
 - Examine.com. Is seed cycling beneficial for hormonal health? https://examine.com/conditions/menstrual-health/faq/is-seed-cycling-beneficial-for-hormonal-health
 - Mayo Clinic. Heavy menstrual bleeding: symptoms and causes. https://mayoclinic.org/diseases-conditions/menorrhagia/symptoms-causes/syc-20352829
+- NewYork-Presbyterian. Menstrual Pain: What's Normal and When to See a Doctor. https://www.nyp.org/healthmatters/menstrual-pain-whats-normal-and-when-to-see-a-doctor
+- MSD Manual. Menstrual Cramps. https://msdmanuals.com/home/women-s-health-issues/menstrual-disorders-and-abnormal-uterine-bleeding/menstrual-cramps
