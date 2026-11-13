@@ -89,6 +89,7 @@ let POST;
 
 before(async () => {
   process.env.CYCLESYNC_DB_FILE = join(dir, 'db.json');
+  process.env.AI_MODE = 'mock'; // never call the real AI from npm test
   const db = await import('../lib/db.js');
   await db.saveProfile(userId, {
     lastPeriodStart: '2026-11-07', cycleLength: 28, contraception: 'no',

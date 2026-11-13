@@ -47,7 +47,7 @@ async function waitFor(fn, tries = 150) {
 // ---------- Start the server and Chrome ----------
 const server = spawn('node', ['server.js'], {
   cwd: REPO,
-  env: { ...process.env, PORT: String(PORT), CYCLESYNC_DB_FILE: join(WORK, 'db.json') },
+  env: { ...process.env, PORT: String(PORT), CYCLESYNC_DB_FILE: join(WORK, 'db.json'), AI_MODE: 'mock' }, // never the real AI
   stdio: 'ignore',
 });
 const chrome = spawn(CHROME, [

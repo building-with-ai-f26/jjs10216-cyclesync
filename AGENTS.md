@@ -17,6 +17,11 @@
   - Uses its own server on port 3131 and a **temporary** data file, so `data/cyclesync-db.json` is never touched.
   - Prints PASS/FAIL per check and the folder where it saved screenshots.
   - **Run it after any change to `public/`**, and update `tests/browser-check.mjs` when screens or flows change.
+- **Run the spec's cases 3–9 against the real AI (optional, costs about $0.002):** `npm run test:ai`
+  - Needs `OPENROUTER_API_KEY` in `.env`; skips with a message if there's none. Uses a temporary data file. Never prints the key.
+  - Prints each case's verdict, headline, prescription, whether it passed the section 7 checks, and the cost.
+  - `npm test` and `npm run test:browser` always use the mock AI and never spend money.
+- **AI mode:** with `OPENROUTER_API_KEY` set, the app calls OpenRouter (`OPENROUTER_MODEL`). With no key, or `AI_MODE=mock`, it uses the free mock coach (`lib/mock-ai.js`).
 - **Run model evals:** `[Build 4]`
 
 ## 3. Non-Negotiable Engineering Rules

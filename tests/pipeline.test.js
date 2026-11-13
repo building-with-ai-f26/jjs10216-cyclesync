@@ -12,6 +12,7 @@ let runCheckin, FALLBACK_MESSAGE, getCheckin, responseApi, checkinApi;
 
 before(async () => {
   process.env.CYCLESYNC_DB_FILE = file;
+  process.env.AI_MODE = 'mock'; // never call the real AI from npm test
   ({ runCheckin, FALLBACK_MESSAGE } = await import('../lib/pipeline.js'));
   ({ getCheckin } = await import('../lib/db.js'));
   const db = await import('../lib/db.js');
