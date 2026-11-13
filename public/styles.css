@@ -316,4 +316,4 @@ input[type="number"] { width: 6em; }
   font-size: 15px;
 }
 .response-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-.response-buttons .btn.chosen { outline: 3px solid var(--accent); outline-offset: 2px; }
+.response-buttons .btn.chosen { background: var(--accent); border-color: var(--accent); color: #fff; } /* the one she tapped is filled */

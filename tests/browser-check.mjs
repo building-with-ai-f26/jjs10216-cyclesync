@@ -327,8 +327,9 @@ try {
   check('prescription has a number', /\d/.test(await text('result-prescription')), await text('result-prescription'));
   check('reason shows', (await text('result-reason')).length > 0);
   check('no tip → tip box hidden', !(await isShown('result-tip')));
-  check('the four response buttons, in order',
-    (await js(`return [...document.querySelectorAll('#response-buttons button')].map((b) => b.textContent).join(' / ')`)) === 'Do this / Original plan / Something else / Rest');
+  const visibleButtons = () => js(`return [...document.querySelectorAll('#response-buttons button')].filter((b) => !b.hidden).map((b) => b.textContent).join(' / ')`);
+  check('KEEP card: "Original plan" is hidden (the plan IS the recommendation)', (await visibleButtons()) === 'Do this / Something else / Rest', await visibleButtons());
+  check('no button is filled before she taps one', await js(`return [...document.querySelectorAll('#response-buttons button')].every((b) => !b.classList.contains('chosen') && b.classList.contains('btn-secondary'))`));
   check('card is hidden from PostHog replays', await js(`return document.getElementById('screen-result').classList.contains('ph-no-capture')`));
   await shot('7-card-great-day');
   let id = await js(`return currentCheckinId`);
@@ -340,8 +341,11 @@ try {
   await respond('do_this');
   check('"Do this" → "Saved: doing this. Have a good one!"', (await text('response-saved')) === 'Saved: doing this. Have a good one!', await text('response-saved'));
   check('response saved on the same check-in ID', savedCheckin(id).response === 'do_this');
+  const filled = () => js(`return [...document.querySelectorAll('#response-buttons button')].filter((b) => getComputedStyle(b).backgroundColor === 'rgb(29, 99, 220)').map((b) => b.textContent).join(',')`);
+  check('the tapped button ("Do this") is the filled one', (await filled()) === 'Do this', await filled());
   await respond('rest');
   check('changing to "Rest" updates it', savedCheckin(id).response === 'rest' && (await text('response-saved')) === 'Saved: resting today. Enjoy it.');
+  check('now "Rest" is the filled one', (await filled()) === 'Rest', await filled());
 
   console.log('\n— Low-energy day: tempo run, energy 2, poor sleep —');
   await click('result-new');
@@ -357,6 +361,7 @@ try {
   check('verdict "Adjust"', (await text('result-verdict')) === 'Adjust', await text('result-verdict'));
   check('headline "Easy 3 miles instead of your 5-mile tempo run"', (await text('result-headline')) === 'Easy 3 miles instead of your 5-mile tempo run', await text('result-headline'));
   check('a tip shows', await isShown('result-tip'));
+  check('ADJUST card: all four buttons, including "Original plan"', (await visibleButtons()) === 'Do this / Original plan / Something else / Rest', await visibleButtons());
   await shot('8-card-low-energy');
 
   console.log('\n— Cramps, "No, it\'s my usual" passes through —');

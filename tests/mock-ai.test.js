@@ -18,7 +18,7 @@ const ctx = (over = {}) => ({
 // Run the mock, then the real output checks, as the pipeline does.
 function recommend(over) {
   const c = ctx(over);
-  const result = checkOutput(parseOutput(JSON.stringify(mockRecommendation(c))), { workout: c.workout, energy: c.energy, sleep: c.sleep, symptoms: c.symptoms, soreness: c.soreness });
+  const result = checkOutput(parseOutput(JSON.stringify(mockRecommendation(c))), { workout: c.workout, energy: c.energy, sleep: c.sleep, symptoms: c.symptoms, soreness: c.soreness }, { phase: c.phase });
   assert.equal(result.ok, true, JSON.stringify(result.errors));
   return result.recommendation;
 }
@@ -99,7 +99,7 @@ test('energy 1 → REST', () => {
 
 test('"you mentioned" energy dips before her period, when it\'s soon and energy is low', () => {
   const r = recommend({ energy: 2, periodSoon: true, phase: 'luteal', patterns: { energyLowerBeforePeriod: 'yes' } });
-  assert.match(r.reason, /You mentioned your energy/);
+  assert.match(r.reason, /You mentioned energy often dips before your period/);
 });
 
 test('every combination passes the section 7 checks (case 10)', () => {
@@ -152,12 +152,10 @@ test('no "energy dips before your period" when the period is not soon', () => {
   assert.doesNotMatch(r.reason, /before your period/);
 });
 
-test('great day on strength, class or walk: KEEP with no extras (strides are runs only)', () => {
-  for (const workout of [{ type: 'strength', focus: 'full', load: 'light' }, { type: 'class', classType: 'pilates' }, { type: 'walk_yoga' }]) {
-    const r = recommend({ workout, energy: 5, sleep: 'good' });
-    assert.equal(r.verdict, 'KEEP');
-    assert.doesNotMatch(r.prescription, /extra|optional|stride/i, workout.type);
-  }
+test('great day: KEEP with one optional extra that fits the workout (none for walk or yoga)', () => {
+  assert.match(recommend({ workout: { type: 'strength', focus: 'full', load: 'light' }, energy: 5, sleep: 'good' }).prescription, /Optional: 1 extra set/);
+  assert.match(recommend({ workout: { type: 'class', classType: 'pilates' }, energy: 5, sleep: 'good' }).prescription, /Optional: take the harder option on one round/);
+  assert.doesNotMatch(recommend({ workout: { type: 'walk_yoga' }, energy: 5, sleep: 'good' }).prescription, /extra|optional|stride/i);
 });
 
 test('the system prompt never contains the word "ovulation" (spec section 4)', () => {
@@ -173,4 +171,9 @@ test('the period pattern is only sent when the period is expected within about 5
   assert.doesNotMatch(notSoon, /before her period|expected within/);
   assert.doesNotMatch(notSoon, /Cramps usually affect/); // no cramps today
   assert.match(buildUserMessage(ctx({ symptoms: ['cramps'], patterns })), /Cramps usually affect her workouts: sometimes/);
+});
+
+test('skipped soreness is left out of the message entirely', () => {
+  assert.doesNotMatch(buildUserMessage(ctx({ soreness: null })), /sore/i);
+  assert.match(buildUserMessage(ctx({ soreness: 'some' })), /Soreness: some/);
 });

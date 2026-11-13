@@ -166,7 +166,8 @@ test('strides: 4-6, on a run, only on a great day', () => {
   fails(/only allowed/, '5 miles easy (effort 4/10), then 4 strides.', { ...great, energy: 3 });
   fails(/only allowed/, '5 miles easy (effort 4/10), then 4 strides.', { ...great, soreness: 'a_lot' });
   fails(/only allowed/, '5 miles easy (effort 4/10), then 4 strides.', { ...great, symptoms: ['headache'] });
-  passes('5 miles easy (effort 4/10), then 4 strides.', { ...great, symptoms: ['bloating'], soreness: 'some' });
+  passes('5 miles easy (effort 4/10). Optional: 4 strides at the end.', { ...great, symptoms: ['bloating'], soreness: 'some' });
+  fails(/only allowed as an optional extra/, '5 miles easy (effort 4/10), then 4 strides.', great); // not labeled optional
   fails(/only allowed/, 'Your session as planned (effort 6/10), then 4 strides.', greatDay({ type: 'strength', focus: 'full', load: 'heavy' }));
   passes('5 miles easy (effort 4/10). No strides today.', day(run(5, 'miles', 'easy'), { sleep: 'poor' }));
 });
@@ -190,7 +191,7 @@ test('phase names and terms fail in any card field', () => {
     assert.equal(checkOutput({ ...good, extra_tip: text }, tempo).ok, false, text);
     assert.equal(checkOutput({ ...good, reason: text }, tempo).ok, false, text);
   }
-  assert.equal(checkOutput({ ...good, extra_tip: 'Some women run a little warmer at this point in their cycle, so bring water.' }, tempo).ok, true);
+  assert.equal(checkOutput({ ...good, extra_tip: 'Some women run a little warmer at this point in their cycle, so bring water.' }, tempo, { phase: 'luteal' }).ok, true);
   assert.equal(checkOutput({ ...good, reason: 'Menstrual cramps today, so keep it gentle.', extra_tip: 'Resting is just as good.' }, { ...tempo, symptoms: ['cramps'] }).ok, true);
 });
 
@@ -207,7 +208,7 @@ test('"don\'t", "do not", "never" and "hold off on" count as skipping', () => {
 import { offersRestAsEqual } from '../lib/checks.js';
 
 test('cramps day: rest must be offered as an equal choice', () => {
-  for (const ok of ['20 minutes of gentle yoga (effort 3/10), or rest. Both are good choices.', 'Resting is just as good today.', 'Rest is an equally good choice today.', 'An easy walk or rest: either is a good call.']) {
+  for (const ok of ['Choose one: an easy 20-30 minute walk at effort 3/10, or a full rest day with gentle stretching for 10 minutes.', '20 minutes of gentle yoga (effort 3/10), or rest. Both are good choices.', 'Resting is just as good today.', 'Rest is an equally good choice today.', 'An easy walk or rest: either is a good call.']) {
     assert.equal(offersRestAsEqual(ok), true, ok);
   }
   for (const bad of ['If cramps feel worse at any point, stop and take the day off instead.', 'A short walk or gentle yoga is an equally good option.', '3 easy miles (effort 3/10).', 'If it gets too uncomfortable, resting is just as good.']) {
@@ -222,4 +223,72 @@ test('cramps day without rest as an equal choice fails the whole answer; a REST 
   assert.equal(checkOutput({ ...easy, extra_tip: 'Resting is just as good a choice today.' }, cramps).ok, true);
   assert.equal(checkOutput({ ...easy, verdict: 'REST', prescription: 'Rest today, or a 15-minute walk (effort 2/10).' }, cramps).ok, true);
   assert.equal(checkOutput(easy, { ...cramps, symptoms: ['none'] }).ok, true); // not a cramps day
+});
+
+// ---------- One optional extra per workout type, on a great day (rule 7) ----------
+const strength = (load) => ({ type: 'strength', focus: 'full', load });
+const cls = (classType) => ({ type: 'class', classType });
+
+test('strength, great day: one optional extra set, or effort up 1 point, is allowed', () => {
+  passes('3 sets of 8 at your usual weight (effort 6/10). Optional: 1 extra set of squats.', greatDay(strength('light')));
+  passes('3 sets of 8 at your usual weight (effort 6/10). Optional: push the last set to effort 7/10.', greatDay(strength('light')));
+});
+
+test('strength extras: not on an ordinary day, not unlabeled, not two sets, never light → heavy', () => {
+  fails(/adds an extra/, '3 sets of 8 (effort 6/10). Optional: 1 extra set.', day(strength('light'))); // energy 3
+  fails(/adds an extra/, '3 sets of 8 (effort 6/10), plus 1 extra set.', greatDay(strength('light'))); // not "optional"
+  fails(/adds an extra/, '3 sets of 8 (effort 6/10). Optional: 2 extra sets.', greatDay(strength('light')));
+  fails(/too hard \(effort 8\/10/, '3 sets of 8 (effort 6/10). Optional: push to effort 8/10.', greatDay(strength('light')));
+  fails(/harder than planned \("heavy"\)/, '3 sets of 8 (effort 6/10). Optional: go heavy on the last set.', greatDay(strength('light')));
+  fails(/harder than planned \(effort 7\/10/, '3 sets of 8 at effort 7/10.', greatDay(strength('light'))); // the +1 must be the optional extra
+});
+
+test('class, great day: the harder option on one round, labeled optional', () => {
+  passes('Take the class as planned (effort 6/10). Optional: the jump variation on one round.', greatDay(cls('barre')));
+  fails(/harder than planned \("jumps"\)/, 'Take the class with jumps (effort 6/10).', greatDay(cls('barre')));
+  fails(/harder than planned|adds an extra/, 'Take the class (effort 6/10). Optional: the jump variation on every round.', greatDay(cls('barre')));
+  fails(/harder than planned \("jump"\)|adds an extra/, 'Take the class (effort 6/10). Optional: the jump variation on one round.', day(cls('barre')));
+});
+
+test('only one optional extra per card', () => {
+  fails(/more than one optional extra/, '5 miles easy (effort 4/10). Optional: 4 strides. Optional: 4 more strides at the very end.', greatDay(run(5, 'miles', 'easy')));
+});
+
+test('walk or yoga: no extras even on a great day', () => {
+  fails(/adds an extra/, '30 minutes of yoga (effort 3/10). Optional: 10 extra minutes.', greatDay({ type: 'walk_yoga' }));
+});
+
+// ---------- Length (rule 9) ----------
+test('length: prescription ≤ 2 sentences / ~35 words, reason ≤ 2 short sentences, tip 1 sentence', () => {
+  const plan = day(run(5, 'miles', 'easy'));
+  const long = 'Run 3 miles at an easy effort (4/10), keeping it relaxed the whole way and focusing on smooth breathing, then walk for five minutes and stretch your calves, hips and hamstrings gently and slowly before heading back inside to rest and recover for the day.';
+  assert.match(checkOutput({ ...good, prescription: long }, plan).errors.join(), /prescription too long/);
+  assert.match(checkOutput({ ...good, prescription: '3 miles easy (effort 4/10). Walk after. Stretch.' }, plan).errors.join(), /prescription too long \(3 sentences/);
+  assert.match(checkOutput({ ...good, reason: 'Low energy. Poor sleep. Go easy.' }, plan).errors.join(), /reason too long/);
+  assert.match(checkOutput({ ...good, extra_tip: 'Warm up well. Then go.' }, plan).errors.join(), /extra_tip too long/);
+  assert.equal(checkOutput({ ...good, prescription: '1.5 miles easy (effort 4/10), then 5 minutes of walking.' }, plan).ok, true); // "1.5" isn't a sentence break
+});
+
+// ---------- Hydration tips (rule 11) ----------
+test('hydration tips only on long runs or estimated luteal days', () => {
+  const tip = { ...good, extra_tip: 'Bring water and sip as you go.' };
+  assert.match(checkOutput(tip, day(run(5, 'miles', 'easy')), { phase: 'follicular' }).errors.join(), /hydration tip/);
+  assert.equal(checkOutput(tip, day(run(5, 'miles', 'easy')), { phase: 'luteal' }).ok, true);
+  assert.equal(checkOutput({ ...tip, prescription: '10 miles at effort 4/10.' }, day(run(10, 'miles', 'long')), { phase: 'follicular' }).ok, true);
+});
+
+// ---------- Wording fits the workout (rule 12) ----------
+test('no running words for lifting or classes', () => {
+  const lift = { ...good, headline: 'Lighter session', prescription: '3 sets of 8 at conversational pace (effort 5/10).' };
+  assert.match(checkOutput(lift, day(strength('light'))).errors.join(), /wording doesn't fit a strength session \("conversational pace"\)/);
+  assert.match(checkOutput({ ...lift, prescription: 'Ride 3 miles easy (effort 5/10).' }, day(cls('spin'))).errors.join(), /fit a class session \("miles"\)/);
+  assert.equal(checkOutput({ ...lift, prescription: '3 sets of 8 at 60% of your usual weight (effort 5/10).' }, day(strength('light'))).ok, true);
+});
+
+// ---------- Skipped soreness (rule 13) ----------
+test('if soreness was skipped, the card does not mention it', () => {
+  const plan = day(run(5, 'miles', 'easy')); // soreness: null
+  assert.match(checkOutput({ ...good, extra_tip: "You skipped the soreness question, so check in with your legs." }, plan).errors.join(), /mentions soreness/);
+  assert.equal(checkOutput({ ...good, extra_tip: 'Stretch your calves after.' }, plan).ok, true);
+  assert.equal(checkOutput({ ...good, reason: 'Some soreness today, so go easy.' }, { ...plan, soreness: 'some' }).ok, true);
 });

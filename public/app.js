@@ -573,6 +573,8 @@ function showResult({ checkinId, recommendation: rec, cycle: c }) {
   for (const b of document.querySelectorAll('#response-buttons button')) {
     b.disabled = false;
     b.classList.remove('chosen');
+    // On a KEEP card the recommendation IS the original plan, so that button is hidden.
+    b.hidden = b.dataset.response === 'original_plan' && rec.verdict === 'KEEP';
   }
   $('response-saved').hidden = true;
   $('response-error').hidden = true;
