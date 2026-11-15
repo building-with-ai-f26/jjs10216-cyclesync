@@ -348,7 +348,8 @@ try {
   const visibleButtons = () => js(`return [...document.querySelectorAll('#response-buttons button')].filter((b) => !b.hidden).map((b) => b.textContent).join(' / ')`);
   check('KEEP card: "Original plan" is hidden (the plan IS the recommendation)', (await visibleButtons()) === 'Do this / Something else / Rest', await visibleButtons());
   check('no button is filled before she taps one', await js(`return [...document.querySelectorAll('#response-buttons button')].every((b) => !b.classList.contains('chosen') && b.classList.contains('btn-secondary'))`));
-  check('card is hidden from PostHog replays', await js(`return document.getElementById('screen-result').classList.contains('ph-no-capture')`));
+  check('card and response buttons are hidden from PostHog (ph-no-capture)', await js(`return ['result-context', 'result-headline', 'response-buttons'].every((id) => document.getElementById(id).closest('.ph-no-capture'))`));
+  check('"Start a new check-in" is outside ph-no-capture, so its clicks are tracked', await js(`return !document.getElementById('result-new').closest('.ph-no-capture')`));
   await shot('7-card-great-day');
   let id = await js(`return currentCheckinId`);
   check('the check-in was saved with an ID', !!savedCheckin(id), id);
@@ -464,9 +465,19 @@ try {
       _reg: {},
       init(key, config) {
         __ph.key = key; __ph.config = config; config.loaded(this);
+        if (config.autocapture) this._autocapture();
         this.capture('$pageview', { $current_url: location.href });
       },
       register(p) { Object.assign(this._reg, p); },
+      _autocapture() {
+        // Like PostHog's autocapture: clicks on buttons, links and form fields,
+        // skipped if the element or any parent has the ph-no-capture class.
+        document.addEventListener('click', (e) => {
+          const el = e.target.closest('button, a, input, label, select, textarea');
+          if (!el || el.closest('.ph-no-capture')) return;
+          this.capture('$autocapture', { $el_text: el.textContent.trim() });
+        }, true);
+      },
       capture(event, properties) {
         const out = __ph.config.before_send({ event, properties: { token: __ph.key, distinct_id: 'anon', ...this._reg, ...properties } });
         if (out) __ph.sent.push(JSON.parse(JSON.stringify(out)));
@@ -493,6 +504,17 @@ try {
   check('replay settings: inputs masked, health screens blocked',
     await js(`return __ph.config.session_recording.maskAllInputs === true && __ph.config.session_recording.blockClass === 'ph-no-capture'`));
 
+  // Every clickable element PostHog's click tracking can see (outside
+  // ph-no-capture), across all screens. Nothing that shows health information.
+  const trackable = await js(`return [...document.querySelectorAll('button, a, input, label, select, textarea')].filter((el) => !el.closest('.ph-no-capture')).map((el) => el.id || el.textContent.trim()).join(', ')`);
+  check('clicks are tracked only on: ← back, Edit my setup, Update my cycle, Start a new check-in',
+    trackable === 'step-back, edit-setup, update-cycle, result-new', trackable);
+  const healthOutside = await js(`return ['onboarding-form', 'context-text', 'cycle-message', 'period-box', 'checkin-form', 'cycle-summary', 'cycle-form', 'screen-safety', 'result-context', 'result-headline', 'result-prescription', 'result-reason', 'result-tip', 'response-buttons']
+    .filter((id) => !document.getElementById(id).closest('.ph-no-capture')).join(', ')`);
+  check('every health screen, the safety screen and the card are inside ph-no-capture', healthOutside === '', healthOutside);
+
+  await click('update-cycle');
+  await click('cycle-cancel');
   // A normal check-in with cramps ("my usual"), then a response
   await tap('workoutType', 'run');
   await js(`const i = document.getElementById('runAmount'); i.value = '5'; i.dispatchEvent(new Event('input', { bubbles: true }))`);
@@ -528,17 +550,19 @@ try {
   const sentSummary = sent.map((e) => `${e.event} ${JSON.stringify(own(e))}`);
   const expected = [
     '$pageview {"source":"app"}',
+    '$autocapture {"source":"app","$el_text":"Update my cycle"}',
     'checkin_started {"source":"app"}',
     'checkin_completed {"source":"app","workout_type":"run"}',
     'result_shown {"source":"app","workout_type":"run"}',
     'response_tapped {"source":"app","workout_type":"run","response":"rest"}',
+    '$autocapture {"source":"app","$el_text":"Start a new check-in"}',
     'checkin_started {"source":"app"}',
     'checkin_completed {"source":"app","workout_type":"strength"}',
     'result_shown {"source":"app","workout_type":"strength"}',
   ];
   check('exactly the funnel events, in order, with only workout_type / response', JSON.stringify(sentSummary) === JSON.stringify(expected), "\n    " + sentSummary.join('\n    '));
   check('every event has source: "app"', sent.length > 0 && sent.every((e) => e.properties.source === 'app'));
-  check('result_shown looks the same for the card and the safety screen', sentSummary[3].replace('run', 'X') === sentSummary[7].replace('strength', 'X'));
+  check('result_shown looks the same for the card and the safety screen', sentSummary[4].replace('run', 'X') === sentSummary[9].replace('strength', 'X'));
   const all = JSON.stringify(sent);
   const leaks = ['cramps', 'heavy_flow', 'soakingHourly', 'a_lot', 'poor', 'tempo', 'lower', 'heavy"', 'menstrual', 'follicular', 'luteal', 'ADJUST', 'SWAP', 'KEEP', 'REST', '"energy', 'Day ', 'cycleDay', 'phase', 'verdict', 'safety', cardText.trim().slice(0, 25), safetyText.slice(0, 25)]
     .filter((w) => w && all.includes(w));

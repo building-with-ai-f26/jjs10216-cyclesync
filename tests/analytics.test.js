@@ -132,7 +132,7 @@ test('app.js only sends the four funnel events, through analytics.js', () => {
 });
 
 test('health screens, the safety screen and the card are hidden from replays (ph-no-capture)', () => {
-  const ids = ['onboarding-form', 'period-box', 'checkin-form', 'cycle-message', 'cycle-summary', 'cycle-form', 'screen-safety', 'screen-result'];
+  const ids = ['onboarding-form', 'period-box', 'checkin-form', 'cycle-message', 'cycle-summary', 'cycle-form', 'screen-safety', 'result-body'];
   for (const id of ids) {
     const tag = html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`));
     assert.ok(tag, `${id} exists`);
@@ -140,6 +140,25 @@ test('health screens, the safety screen and the card are hidden from replays (ph
   }
   assert.match(html, /<div class="context ph-no-capture">/, 'cycle day / phase line is hidden');
   assert.ok(html.indexOf('analytics.js') < html.indexOf('app.js'), 'analytics.js loads before app.js');
+});
+
+// Bug, Nov 15: the whole result screen was ph-no-capture, so clicks on
+// "Start a new check-in" were never sent. Now only the card and the response
+// buttons (#result-body) are hidden; that one link sits outside.
+test('result screen: card and response buttons hidden, "Start a new check-in" outside', () => {
+  const section = html.match(/<section[^>]*id="screen-result"[^>]*>/)[0];
+  assert.doesNotMatch(section, /ph-no-capture/);
+  const open = html.indexOf('id="result-body"');
+  const newBtn = html.indexOf('id="result-new"');
+  for (const id of ['result-context', 'result-verdict', 'result-headline', 'result-prescription', 'result-reason', 'result-tip', 'response-buttons', 'response-saved', 'response-error']) {
+    const at = html.indexOf(`id="${id}"`);
+    assert.ok(open < at && at < newBtn, `${id} is inside #result-body`);
+  }
+  // #result-body closes before the "Start a new check-in" button.
+  const between = html.slice(html.lastIndexOf('<div', open), newBtn);
+  const opens = (between.match(/<div\b/g) || []).length;
+  const closes = (between.match(/<\/div>/g) || []).length;
+  assert.equal(opens, closes, '#result-body is closed before "Start a new check-in"');
 });
 
 test('/api/config: no key → no analytics', async () => {
