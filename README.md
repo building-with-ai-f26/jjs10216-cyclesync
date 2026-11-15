@@ -6,6 +6,7 @@
 - **Pod:** TODO
 - **Product Page & Living PRD:** https://building-with-ai-f26.github.io/jjs10216-cyclesync/
 - **App:** runs locally / on my phone through Week 4; cloud URL added later.
+- **Build 1 Shortcut:** Try the Build 1 Shortcut on your iPhone: https://www.icloud.com/shortcuts/f85a59d313df4b9d9ca19a87a014dd6d
 
 ## Start here: Build 1
 
