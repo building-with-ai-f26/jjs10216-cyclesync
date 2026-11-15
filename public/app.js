@@ -30,6 +30,16 @@ const userId = getUserId();
 // ---------- Helpers ----------
 const $ = (id) => document.getElementById(id);
 
+// Funnel events for PostHog (public/analytics.js). Only workout_type and
+// response are ever sent with them, never health answers or card text.
+function track(name, props) {
+  try {
+    window.csAnalytics?.track(name, props);
+  } catch {
+    // Analytics must never break the app.
+  }
+}
+
 function showScreen(name) {
   for (const el of document.querySelectorAll('main > section')) el.hidden = true;
   $('loading').hidden = true;
@@ -278,6 +288,7 @@ $('cycle-form').addEventListener('submit', async (event) => {
 const checkinForm = $('checkin-form');
 let currentStep = null;
 let advanceTimer = null;
+let checkinStarted = false; // has checkin_started been sent for this check-in?
 
 // Ask "Any cramps today?" first on period days, if she said cramps usually
 // (or sometimes) affect her workouts.
@@ -379,6 +390,7 @@ function goBack() {
 function resetCheckin() {
   checkinForm.reset();
   currentStep = null;
+  checkinStarted = false;
   renderStep();
 }
 
@@ -389,6 +401,12 @@ for (const btn of checkinForm.querySelectorAll('[data-next]')) btn.addEventListe
 // and keep "None" from being picked together with other symptoms.
 checkinForm.addEventListener('change', (event) => {
   const { name, value, checked } = event.target;
+
+  // Her first answer in this check-in.
+  if (!checkinStarted) {
+    checkinStarted = true;
+    track('checkin_started');
+  }
 
   if (name === 'crampsToday') {
     const cramps = checkinForm.querySelector('input[name="symptoms"][value="cramps"]');
@@ -501,11 +519,14 @@ checkinForm.addEventListener('submit', async (event) => {
   const button = checkinForm.querySelector('button[type="submit"]');
   errorBox.hidden = true;
   button.disabled = true;
+  const checkin = readCheckin();
+  currentWorkoutType = checkin.workout.type;
+  track('checkin_completed', { workout_type: currentWorkoutType });
 
   try {
     const { ok, data } = await api('/api/checkin', {
       method: 'POST',
-      body: JSON.stringify({ userId, today: todayLocal(), checkin: readCheckin() }),
+      body: JSON.stringify({ userId, today: todayLocal(), checkin }),
     });
     if (!ok) {
       errorBox.textContent = data.error || 'Something went wrong. Please try again.';
@@ -516,9 +537,11 @@ checkinForm.addEventListener('submit', async (event) => {
     // message(s): no workout advice, and no recommendation.
     if (data.safety) {
       showSafety(data.safety);
-      return;
+    } else {
+      showResult(data);
     }
-    showResult(data);
+    // Same event either way, so it never hints at a safety message.
+    track('result_shown', { workout_type: currentWorkoutType });
   } catch {
     errorBox.textContent = 'Could not reach the server. Is it running?';
     errorBox.hidden = false;
@@ -554,6 +577,7 @@ const RESPONSE_SAVED = {
   rest: 'Saved: resting today. Enjoy it.',
 };
 let currentCheckinId = null;
+let currentWorkoutType = null; // run / strength / class / walk_yoga, for analytics
 
 // Fills the card from the server's answer. Text only (textContent, never HTML).
 // If the AI's answer failed the checks twice, the server sends the safe
@@ -596,6 +620,7 @@ $('response-buttons').addEventListener('click', async (event) => {
     for (const b of buttons) b.classList.toggle('chosen', b === button);
     $('response-saved').textContent = RESPONSE_SAVED[button.dataset.response];
     $('response-saved').hidden = false;
+    track('response_tapped', { workout_type: currentWorkoutType, response: button.dataset.response });
   } catch {
     $('response-error').textContent = 'Could not save that. Please try again.';
     $('response-error').hidden = false;

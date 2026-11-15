@@ -15,6 +15,7 @@
         defaults: '2026-05-30',
         person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
     })
+    posthog.register({ source: 'product_page' }) // tells Product Page events apart from the app's ("app")
   </script>
 
   <style>

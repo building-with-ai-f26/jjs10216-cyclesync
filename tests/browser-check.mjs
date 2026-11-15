@@ -10,6 +10,9 @@
 //   normal check-in that passes through.
 // - Covers the recommendation card (mock AI), the four response buttons, and
 //   that the check-in and response are saved under one ID.
+// - Covers analytics: with no PostHog key nothing loads; with a fake key, a
+//   fake PostHog (served by Chrome, nothing goes online) records every event
+//   the app would send, and the check confirms no health data is in them.
 // - Saves screenshots to a temporary folder and prints where.
 // - Not part of `npm test` (that stays fast and browser-free).
 
@@ -23,8 +26,11 @@ const WORK = mkdtempSync(join(tmpdir(), 'cyclesync-browser-'));
 const SHOTS = join(WORK, 'screenshots');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 3131;
+const PH_PORT = 3132; // second server with a fake PostHog key
 const DEBUG_PORT = 9334;
 const BASE = `http://localhost:${PORT}`;
+const PH_BASE = `http://localhost:${PH_PORT}`;
+const FAKE_KEY = 'phc_browser_check_fake_key';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
@@ -47,7 +53,12 @@ async function waitFor(fn, tries = 150) {
 // ---------- Start the server and Chrome ----------
 const server = spawn('node', ['server.js'], {
   cwd: REPO,
-  env: { ...process.env, PORT: String(PORT), CYCLESYNC_DB_FILE: join(WORK, 'db.json'), AI_MODE: 'mock' }, // never the real AI
+  env: { ...process.env, PORT: String(PORT), CYCLESYNC_DB_FILE: join(WORK, 'db.json'), AI_MODE: 'mock', POSTHOG_KEY: '' }, // never the real AI
+  stdio: 'ignore',
+});
+const phServer = spawn('node', ['server.js'], {
+  cwd: REPO,
+  env: { ...process.env, PORT: String(PH_PORT), CYCLESYNC_DB_FILE: join(WORK, 'db-ph.json'), AI_MODE: 'mock', POSTHOG_KEY: FAKE_KEY, POSTHOG_HOST: 'https://us.i.posthog.com' },
   stdio: 'ignore',
 });
 const chrome = spawn(CHROME, [
@@ -58,6 +69,7 @@ const chrome = spawn(CHROME, [
 async function cleanup() {
   chrome.kill();
   server.kill();
+  phServer.kill();
   await sleep(1000);
   try { rmSync(join(WORK, 'chrome'), { recursive: true, force: true }); } catch {}
 }
@@ -65,6 +77,7 @@ async function cleanup() {
 let ws;
 try {
   await waitFor(() => fetch(`${BASE}/api/health`).then((r) => r.ok));
+  await waitFor(() => fetch(`${PH_BASE}/api/health`).then((r) => r.ok));
   const targets = await waitFor(() => fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`).then((r) => r.json()));
   ws = new WebSocket(targets.find((t) => t.type === 'page').webSocketDebuggerUrl);
   await new Promise((resolve) => (ws.onopen = resolve));
@@ -77,11 +90,14 @@ try {
 // ---------- Talking to Chrome (DevTools protocol) ----------
 let nextId = 1;
 const pending = new Map();
+const eventHandlers = {};
 ws.onmessage = (m) => {
   const msg = JSON.parse(m.data);
   if (msg.id && pending.has(msg.id)) {
     pending.get(msg.id)(msg);
     pending.delete(msg.id);
+  } else if (msg.method && eventHandlers[msg.method]) {
+    eventHandlers[msg.method](msg.params);
   }
 };
 const cdp = (method, params = {}) =>
@@ -121,16 +137,16 @@ const BASE_PROFILE = {
   goal: 'stay_consistent',
 };
 
-async function makeUser(id, profile) {
-  const res = await fetch(`${BASE}/api/onboarding`, {
+async function makeUser(id, profile, base = BASE) {
+  const res = await fetch(`${base}/api/onboarding`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ userId: id, profile }),
   });
   if (!res.ok) throw new Error(await res.text());
 }
-async function openAs(id) {
-  await cdp('Page.navigate', { url: `${BASE}/` });
+async function openAs(id, base = BASE) {
+  await cdp('Page.navigate', { url: `${base}/` });
   await sleep(500);
   await js(`localStorage.setItem('cyclesync.userId', '${id}')`);
   await cdp('Page.reload');
@@ -176,6 +192,8 @@ try {
   await makeUser(day4, { ...BASE_PROFILE, lastPeriodStart: iso(-3) });
   await openAs(day4);
   check('opens on the check-in screen', await isShown('screen-checkin'));
+  await sleep(300);
+  check('no PostHog key → PostHog never loads, app works', await js(`return window.posthog === undefined && !document.querySelector('script[src*="posthog"]')`));
   const hour = new Date().getHours();
   const hello = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   check(`greeting is "${hello}"`, (await text('greeting')) === hello, await text('greeting'));
@@ -435,6 +453,97 @@ try {
   await cdp('Page.reload');
   await waitFor(() => isShown('screen-onboarding'));
   check('a new visitor sees onboarding', await isShown('screen-onboarding'));
+
+  // ===== 7. Analytics: what PostHog would receive =====
+  console.log('\n— Analytics (fake PostHog key; nothing goes online) —');
+  // A stand-in for PostHog's script. It runs every event through the app's
+  // before_send check, exactly like the real one, and keeps what would be sent.
+  const FAKE_POSTHOG = `
+    window.__ph = { sent: [], key: null, config: null };
+    window.posthog = {
+      _reg: {},
+      init(key, config) {
+        __ph.key = key; __ph.config = config; config.loaded(this);
+        this.capture('$pageview', { $current_url: location.href });
+      },
+      register(p) { Object.assign(this._reg, p); },
+      capture(event, properties) {
+        const out = __ph.config.before_send({ event, properties: { token: __ph.key, distinct_id: 'anon', ...this._reg, ...properties } });
+        if (out) __ph.sent.push(JSON.parse(JSON.stringify(out)));
+      },
+    };`;
+  const phRequests = [];
+  eventHandlers['Fetch.requestPaused'] = ({ requestId, request }) => {
+    phRequests.push(request.url);
+    const body = request.url.endsWith('/static/array.js') ? FAKE_POSTHOG : '';
+    cdp('Fetch.fulfillRequest', {
+      requestId, responseCode: 200,
+      responseHeaders: [{ name: 'content-type', value: 'text/javascript' }, { name: 'access-control-allow-origin', value: '*' }],
+      body: Buffer.from(body).toString('base64'),
+    });
+  };
+  await cdp('Fetch.enable', { patterns: [{ urlPattern: '*posthog.com*' }] });
+
+  const phUser = '77777777-7777-4777-8777-777777777777';
+  await makeUser(phUser, { ...BASE_PROFILE, lastPeriodStart: iso(-21) }, PH_BASE);
+  await openAs(phUser, PH_BASE);
+  await waitFor(() => js(`return !!window.__ph?.config`));
+  check('PostHog script requested from us-assets.i.posthog.com', phRequests[0] === 'https://us-assets.i.posthog.com/static/array.js', phRequests[0]);
+  check('it starts with the key from .env', (await js(`return __ph.key`)) === FAKE_KEY);
+  check('replay settings: inputs masked, health screens blocked',
+    await js(`return __ph.config.session_recording.maskAllInputs === true && __ph.config.session_recording.blockClass === 'ph-no-capture'`));
+
+  // A normal check-in with cramps ("my usual"), then a response
+  await tap('workoutType', 'run');
+  await js(`const i = document.getElementById('runAmount'); i.value = '5'; i.dispatchEvent(new Event('input', { bubbles: true }))`);
+  await tap('runUnit', 'miles');
+  await tap('runKind', 'tempo');
+  await tap('energy', '2');
+  await tap('sleep', 'poor');
+  await tap('symptoms', 'cramps');
+  await clickNext('symptoms');
+  await tap('crampsUnusual', 'no');
+  await tap('soreness', 'a_lot');
+  await submit();
+  const cardText = await js(`return document.getElementById('screen-result').textContent`);
+  await respond('rest');
+  // Then one that ends on the safety screen
+  await click('result-new');
+  await tap('workoutType', 'strength');
+  await tap('strengthFocus', 'lower');
+  await tap('strengthLoad', 'heavy');
+  await tap('energy', '3');
+  await tap('sleep', 'ok');
+  await tap('symptoms', 'heavy_flow');
+  await clickNext('symptoms');
+  await tap('heavyFlowSigns', 'soakingHourly');
+  await clickNext('heavyFlow');
+  await submit();
+  check('(safety screen shown)', await isShown('screen-safety'));
+  const safetyText = await text('safety-messages');
+  await sleep(200);
+
+  const sent = await js(`return __ph.sent`);
+  const own = (e) => Object.fromEntries(Object.entries(e.properties).filter(([k]) => !['token', 'distinct_id', '$current_url'].includes(k)));
+  const sentSummary = sent.map((e) => `${e.event} ${JSON.stringify(own(e))}`);
+  const expected = [
+    '$pageview {"source":"app"}',
+    'checkin_started {"source":"app"}',
+    'checkin_completed {"source":"app","workout_type":"run"}',
+    'result_shown {"source":"app","workout_type":"run"}',
+    'response_tapped {"source":"app","workout_type":"run","response":"rest"}',
+    'checkin_started {"source":"app"}',
+    'checkin_completed {"source":"app","workout_type":"strength"}',
+    'result_shown {"source":"app","workout_type":"strength"}',
+  ];
+  check('exactly the funnel events, in order, with only workout_type / response', JSON.stringify(sentSummary) === JSON.stringify(expected), "\n    " + sentSummary.join('\n    '));
+  check('every event has source: "app"', sent.length > 0 && sent.every((e) => e.properties.source === 'app'));
+  check('result_shown looks the same for the card and the safety screen', sentSummary[3].replace('run', 'X') === sentSummary[7].replace('strength', 'X'));
+  const all = JSON.stringify(sent);
+  const leaks = ['cramps', 'heavy_flow', 'soakingHourly', 'a_lot', 'poor', 'tempo', 'lower', 'heavy"', 'menstrual', 'follicular', 'luteal', 'ADJUST', 'SWAP', 'KEEP', 'REST', '"energy', 'Day ', 'cycleDay', 'phase', 'verdict', 'safety', cardText.trim().slice(0, 25), safetyText.slice(0, 25)]
+    .filter((w) => w && all.includes(w));
+  check('no health answers, symptoms, cycle day, phase, verdict or card text in any event', leaks.length === 0, leaks.join(', '));
+  await cdp('Fetch.disable');
 } catch (err) {
   failures++;
   console.error(`\nStopped early: ${err.message}`);

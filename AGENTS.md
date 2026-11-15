@@ -13,6 +13,7 @@
 - **Run deterministic tests:** `npm test` (fast, no browser; runs `tests/**/*.test.js`)
 - **Run the browser check:** `npm run test:browser`
   - Clicks through the real app in headless Google Chrome at phone size: onboarding, the one-question-at-a-time check-in, heavy-flow and cramps follow-ups, the safety screen, the recommendation card and response buttons (mock AI), cycle context, "Update my cycle", and the period due/late prompt.
+  - Also checks analytics: with no `POSTHOG_KEY` PostHog never loads; with a fake key, a stand-in PostHog served by Chrome (nothing goes online) records every event, and the check confirms only the funnel events, `source: "app"`, `workout_type` and `response` are sent.
   - Needs Google Chrome installed (set `CHROME_PATH` if it isn't in `/Applications`). No npm packages.
   - Uses its own server on port 3131 and a **temporary** data file, so `data/cyclesync-db.json` is never touched.
   - Prints PASS/FAIL per check and the folder where it saved screenshots.
@@ -21,6 +22,7 @@
   - Needs `OPENROUTER_API_KEY` in `.env`; skips with a message if there's none. Uses a temporary data file. Never prints the key.
   - Prints each case's verdict, headline, prescription, whether it passed the section 7 checks, and the cost.
   - `npm test` and `npm run test:browser` always use the mock AI and never spend money.
+- **Analytics:** set `POSTHOG_KEY` (and `POSTHOG_HOST`) in `.env` to turn on PostHog. With no key the app runs without analytics. `public/analytics.js` is the only file that talks to PostHog.
 - **AI mode:** with `OPENROUTER_API_KEY` set, the app calls OpenRouter (`OPENROUTER_MODEL`). With no key, or `AI_MODE=mock`, it uses the free mock coach (`lib/mock-ai.js`).
 - **Run model evals:** `[Build 4]`
 
