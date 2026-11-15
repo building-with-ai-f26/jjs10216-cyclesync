@@ -257,9 +257,10 @@
       <div class="log-entry">
         <h3>Build 2 · Smallest Local Version & PostHog (Due Nov 16)</h3>
         <ul>
-          <li><strong>What shipped:</strong> [Local working slice, PostHog verified on this page and the local app, PRD v2, and local setup in AGENTS.md]</li>
-          <li><strong>What broke / changed in PRD:</strong> [Fill in]</li>
-          <li><strong>Cost & time this week:</strong> $[0.00] · [0] hours</li>
+          <li><strong>What shipped:</strong> Onboarding, a one-question-at-a-time check-in, cycle day and estimated phase as context, a safety screen in code, a real AI recommendation card with response buttons, saved check-ins, about 200 automated tests plus a browser check and a real-AI test run, and PostHog in the app with privacy masking.</li>
+          <li><strong>Things learned with AI:</strong> Frontend vs backend; how API calls and keys work and why keys live only in <code>.env</code>; how tokens become cost per run; rules in a prompt aren't enough, important rules need checks in code, and testing catches what checks miss.</li>
+          <li><strong>What broke / changed in PRD:</strong> A check-in prompt appeared on its own (fixed with a test). My project folder disappeared and I re-cloned with nothing lost. My OpenRouter key was exposed twice (a screenshot, then a chat), so I deleted it and made a new one each time; it now lives only in <code>.env</code>. The check-in felt like a survey, so I redesigned it. The cramps safety rule was too dramatic. AI testing led to new code checks. App clicks weren't reaching PostHog at first, so I turned on click tracking for non-health buttons only. PRD changes: web app with the Shortcut as the nudge; phases shown only menstrual, follicular and luteal; no phase for hormonal contraception.</li>
+          <li><strong>Cost & time this week:</strong> $0.02 AI usage · 9 hours</li>
         </ul>
         <p><strong>Decisions so far:</strong></p>
         <ul>
