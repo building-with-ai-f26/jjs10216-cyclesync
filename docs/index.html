@@ -167,12 +167,11 @@
     <section id="live-demo">
       <h2>Product Showcase (Prototype / Live App / 2-Min Video)</h2>
       <p>
-        <strong>Current Status:</strong> Build 1: working iOS Shortcut prototype (runs on my Mac and syncs to my iPhone).<br />
-        <strong>Demo:</strong> Screen recording of the Build 1 Shortcut prototype:
+        <strong>Current Status:</strong> Build 2: a working local web app that gives real AI workout recommendations, with safety rules checked in code.<br />
+        <strong>Demo:</strong> A recommendation card from the Build 2 app:
       </p>
-      <video src="assets/cyclesync-build1-demo.mp4" controls muted playsinline preload="metadata" style="width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px;">
-        Your browser can't play this video. <a href="assets/cyclesync-build1-demo.mp4">Download the demo recording</a>.
-      </video>
+      <img src="images/cyclesync-card.png" alt="CycleSync recommendation card from the Build 2 app" style="display: block; width: 100%; max-width: 360px; height: auto; border: 1px solid var(--border); border-radius: 8px;" />
+      <p class="meta" style="margin-top: 8px;">Earlier: <a href="assets/cyclesync-build1-demo.mp4">screen recording of the Build 1 Shortcut prototype</a>.</p>
     </section>
 
     <!-- LIVING PRD (Updated every week!) -->
@@ -191,39 +190,53 @@
         <li><strong>In Scope (Core Workflow):</strong> Morning check-in → one recommendation with a reason → she accepts, modifies, or skips → her response is saved to personalize future suggestions.</li>
         <li><strong>Out of Scope #1:</strong> Full training programs or meal plans (nutrition is a possible later add-on).</li>
         <li><strong>Out of Scope #2:</strong> Wearable or Apple Health integrations.</li>
-        <li><strong>Out of Scope #3:</strong> Medical diagnosis, treatment, or cycle prediction. If she reports severe pain or very heavy flow, CycleSync suggests talking to a doctor instead of giving workout advice.</li>
+        <li><strong>Out of Scope #3:</strong> Medical diagnosis, treatment, or fertility and ovulation predictions. If she reports warning signs of heavy bleeding, or cramps that are worse than usual, not helped by pain relief, or come with fever or vomiting, CycleSync suggests checking in with a doctor instead of giving workout advice.</li>
       </ul>
       <p><strong>Product principles:</strong> Recommendations are based on how she says she feels, with cycle day as context rather than strict cycle-phase rules. CycleSync collects minimal health data, uses anonymous IDs, and masks health fields in analytics.</p>
 
       <h3>3. How It Works Under the Hood & Riskiest Assumption (Week 2+)</h3>
-      <p><strong>Riskiest Assumption:</strong> That women will keep doing a daily check-in after the first week.</p>
+      <p><strong>Riskiest Assumption:</strong> That women will keep doing a daily check-in after the first week. Tested in Build 3.</p>
+      <p><strong>Biggest technical risk:</strong> The AI gives generic or unsafe advice instead of specific, safe, feelings-first recommendations.</p>
+      <p><strong>How I tested it:</strong></p>
+      <ul>
+        <li>Ran 7 spec cases against the real AI, plus my own check-ins.</li>
+        <li>The AI turned a 5-mile tempo run into 7.5 miles on poor sleep, so I added a code check that blocks anything longer or harder than planned.</li>
+        <li>Personal patterns showed up on the wrong days, so they're now only sent when relevant.</li>
+        <li>Cramps cards sometimes offered rest only "if worse", so a check now requires rest as an equal option, and the AI retries with feedback.</li>
+        <li>Tightening a word limit broke a normal case, so I loosened it and made the fallback a specific rule-based card.</li>
+        <li>My first cramps safety rule was too dramatic for normal period pain, so it now triggers only on medical red flags (<a href="https://www.nyp.org/healthmatters/menstrual-pain-whats-normal-and-when-to-see-a-doctor">NewYork-Presbyterian</a>, <a href="https://msdmanuals.com/home/women-s-health-issues/menstrual-disorders-and-abnormal-uterine-bleeding/menstrual-cramps">MSD Manual</a>).</li>
+      </ul>
+      <p><strong>Result:</strong> All 7 cases pass on the first try.</p>
       <p><strong>Simple Architecture:</strong></p>
       <ul>
-        <li><strong>v1 / Build 1:</strong> [Morning check-in in an iOS Shortcut, with no app download] → [Simple if/then rules inside the Shortcut] → [Keep / Adjust / Swap / Rest + one-line reason]. The iOS Shortcut approach follows Prof. Grewell's suggestion.</li>
-        <li><strong>Build 2:</strong> [iOS Shortcut check-in] → [Backend hosted on Vercel] → [AI recommendation] → [Recommendation + stored history]</li>
-        <li><strong>Possible v2:</strong> A TestFlight app with actionable notifications, if usage justifies it.</li>
+        <li><strong>Build 2:</strong> [Check-in web app on localhost] → [Node server: safety rules in code first] → [Context: cycle day, est. phase (none on hormonal contraception), her patterns, today's answers] → [Claude Haiku 5.5 via OpenRouter] → [Code checks, retry with feedback, rule-based fallback] → [Card + response saved with a check-in ID]</li>
+        <li><strong>Next:</strong> Deploy on Vercel in Build 3, with the iOS Shortcut as the morning nudge.</li>
       </ul>
 
       <h3>4. Unit Economics & Analytics Snapshot (Updated Weekly)</h3>
       <div class="grid-2">
         <div class="stat-box">
           <div class="stat-label">Cumulative Build Spend</div>
-          <div class="stat-value">$0</div>
+          <div class="stat-value">$0.02 used</div>
+          <div class="meta">$5 OpenRouter credits bought, $0.02 used across 76 AI requests (Claude Pro already owned).</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Est. Cost Per User Run</div>
-          <div class="stat-value">$0</div>
-          <div class="meta">In Build 1 (rules run on-device). AI cost per run will be estimated in Build 2.</div>
+          <div class="stat-value">≈ $0.0003</div>
+          <div class="meta">About $0.0003 per check-in (about 1 cent per user per month).</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">User Evidence (Analytics from Build 2)</div>
-          <div class="stat-value">[Not yet measured]</div>
+          <div class="stat-value">≈ 16 sec check-in</div>
+          <div class="meta">PostHog verified on this page and in the app: pageviews, clicks, funnel events and session replay, with health screens and recommendation cards masked. In my own testing a check-in takes about 16 seconds from start to response (n=1).</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Sponsor Call (Week 6)</div>
           <div class="stat-value">TBD</div>
         </div>
       </div>
+      <img src="images/posthog-dashboard.png" alt="PostHog dashboard for CycleSync: pageviews, clicks and check-in funnel events" style="display: block; width: 100%; height: auto; margin-top: 16px; border: 1px solid var(--border); border-radius: 8px;" />
+      <p class="meta" style="margin-top: 8px;">PostHog dashboard for this page and the app.</p>
     </section>
 
     <!-- WEEKLY BUILD LOG (Updated at least twice a week via Git commits) -->

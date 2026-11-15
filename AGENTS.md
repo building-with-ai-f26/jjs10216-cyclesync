@@ -3,9 +3,32 @@
 > Give this file to your coding agent and check that it is using these instructions. Keep the stack, commands, and ground rules current.
 
 ## 1. Project Overview
-- **What this repo builds:** [1–2 sentence summary]
-- **Primary user & core workflow:** [See the living PRD in `docs/index.html`]
-- **Tech stack:** [e.g., Python 3.12 / FastAPI / Next.js / SQLite / OpenRouter API]
+- **What this repo builds:** CycleSync, a morning check-in web app. She taps how she feels and what workout she planned, and gets one recommendation (Keep / Adjust / Swap / Rest) from an AI, with safety rules checked in code first.
+- **Primary user & core workflow:** See the living PRD in `docs/index.html`. Recommendation rules: `research/recommendation-spec.md`.
+- **Tech stack:** Plain HTML/CSS/JS, Node.js 22+ server (no npm packages), local JSON data file, OpenRouter (Claude Haiku 5.5), PostHog.
+
+### Project structure
+- `public/`: what the browser sees. `index.html` (all screens), `app.js` (screens, sends answers to the server), `analytics.js` (the only file that talks to PostHog), `styles.css`.
+- `server.js`: local-only server. Serves `public/` and sends `/api/<name>` to `api/<name>.js`.
+- `api/`: one file per server action (Vercel format): `onboarding`, `context` (today's cycle day/phase), `checkin` (runs the pipeline), `response`, `period`, `config` (public PostHog key), `health`.
+- `lib/`: the logic, each piece tested on its own.
+  - `pipeline.js` runs the steps in order: `safety.js` (safety rules in code, before any AI call) → `cycle.js` (cycle day + estimated phase) → `prompt.js` + `ai.js` (OpenRouter call, tokens and cost) → `checks.js` (output checks, retry with feedback) → `mock-ai.js` (free mock coach and rule-based fallback) → `db.js` (save).
+  - `checkin.js` and `profile.js` validate input.
+  - `db.js` is the only file that reads or writes saved data.
+- `data/`: `cyclesync-db.json`, the local health data. Ignored by Git, never committed.
+- `tests/`: unit tests (`*.test.js`), the browser check (`browser-check.mjs`), the real-AI cases (`real-ai.mjs`).
+- `research/`: evidence brief and recommendation spec (read before changing the recommendation flow).
+- `docs/`: the Product Page / living PRD (GitHub Pages). `journal/`: build logs. `Plan.md`: the Build 2 plan.
+
+### Setup
+1. `git clone https://github.com/building-with-ai-f26/jjs10216-cyclesync.git && cd jjs10216-cyclesync`
+2. Install Node.js 22 or newer. There's nothing else to install.
+3. `cp .env.example .env`, then fill in what you have:
+   - `OPENROUTER_API_KEY`: real AI. Leave it blank for the free mock coach.
+   - `OPENROUTER_MODEL`: defaults to `anthropic/claude-haiku-5.5`.
+   - `POSTHOG_KEY` / `POSTHOG_HOST`: analytics. Leave the key blank for none.
+4. Keys live only in `.env`, which Git ignores. Never put them in code, commits, or a chat with a coding agent.
+5. `npm run dev`, then open http://localhost:3000.
 
 ## 2. Commands
 - **Install dependencies:** none. The app uses only what's built into Node.js 22+ (tested on Node 26). Copy `.env.example` to `.env` when you have keys.
