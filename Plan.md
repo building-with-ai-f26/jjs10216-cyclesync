@@ -375,10 +375,27 @@ Today is Tue Nov 17. Each 🤖 step is one small commit, with `npm test` (and `n
    - odd input and a 2 MB request are refused
    - 30 rapid check-ins let 5 through (≈ $0.001 of real AI) and refuse 25
    - responses save
-3. 🙋 Console test (class check 1), with screenshots, using the snippet from the Nov 17 chat:
-   - (a) live site console: blocked by the Content-Security-Policy
-   - (b) `about:blank` console: ADD and DELETE both refused with 401 / `42501`
-   - (c) Table Editor: `security-check-a` is still there and there's no `console-test` row
+3. 🙋 Console test (class check 1), with screenshots. Do it **after** the test invites from item 1 are added, so there's a real row to try to delete.
+   - Fill in your own Supabase URL and **publishable** key. The publishable key is public, so it's fine in a browser console. Never use the secret key here.
+     ```js
+     const URL = 'https://<your-project>.supabase.co';
+     const KEY = 'sb_publishable_...';
+     const h = { apikey: KEY, 'Content-Type': 'application/json' };
+     const add = await fetch(`${URL}/rest/v1/invites`, { method: 'POST', headers: h, body: JSON.stringify({ code_hash: '0'.repeat(64), label: 'console-test' }) });
+     console.log('ADD', add.status, await add.text());
+     const del = await fetch(`${URL}/rest/v1/invites?label=eq.security-check-a`, { method: 'DELETE', headers: h });
+     console.log('DELETE', del.status, await del.text());
+     ```
+   - **(a) Live site console:** open https://jjs10216-cyclesync.vercel.app, then DevTools → Console, and paste it.
+     - **Expected:** an error saying the request "violates the Content Security Policy". The site won't even send a request to Supabase.
+     - 📸 Screenshot.
+   - **(b) Blank tab console:** paste it in a tab on `about:blank`, so the request reaches the database.
+     - **Expected:** `ADD 401` and `DELETE 401`, each with `"code":"42501"` and "permission denied for table invites".
+     - 📸 Screenshot. Crop or blur the key before sharing.
+   - **(c) Supabase → Table Editor → `invites`:**
+     - **Expected:** `security-check-a` is still there, so the delete changed nothing, and there's no `console-test` row, so the add was refused.
+     - 📸 Screenshot.
+   - **If (b) shows anything other than 401 / `42501`, or (c) shows a change:** the lock is broken. Stop, don't invite anyone, and tell 🤖. If a `console-test` row appeared, delete it in the Table Editor.
 4. 🙋 Real check-in on her phone:
    - add `APP_URL=https://jjs10216-cyclesync.vercel.app` to `.env`, run `npm run invite -- julia`, paste the SQL line, open the link on her phone
    - full check-in + a response
