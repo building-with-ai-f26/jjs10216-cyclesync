@@ -317,3 +317,8 @@ input[type="number"] { width: 6em; }
 }
 .response-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
 .response-buttons .btn.chosen { background: var(--accent); border-color: var(--accent); color: #fff; } /* the one she tapped is filled */
+
+/* ---------- Privacy note (footer, every screen) ---------- */
+.app-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 0.85rem; }
+.app-footer summary { cursor: pointer; color: var(--muted); }
+.privacy-body p { margin: 10px 0; line-height: 1.45; color: var(--muted); }

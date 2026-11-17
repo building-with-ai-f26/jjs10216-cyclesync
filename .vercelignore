@@ -1,0 +1,10 @@
+# Only what the live site needs is uploaded to Vercel. Everything else stays
+# off it, above all data/ (local health data) and .env (keys), which matters
+# when deploying from the laptop with the Vercel command-line tool.
+# server.js is local-only: Vercel serves public/ and runs api/ itself.
+/*
+!/public
+!/api
+!/lib
+!/package.json
+!/vercel.json

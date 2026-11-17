@@ -6,6 +6,7 @@
 
 import { createServer } from 'node:http';
 import { readFile, access } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -13,6 +14,12 @@ const HOST = '127.0.0.1'; // Only reachable from this laptop, not the rest of th
 const ROOT = import.meta.dirname;
 const PUBLIC_DIR = join(ROOT, 'public');
 const MAX_BODY_BYTES = 100_000;
+
+// The same security headers the live site sends (vercel.json), so local runs
+// and the browser check behave like production.
+const SECURITY_HEADERS = Object.fromEntries(
+  JSON.parse(readFileSync(join(ROOT, 'vercel.json'), 'utf8')).headers[0].headers.map((h) => [h.key.toLowerCase(), h.value]),
+);
 
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -27,6 +34,7 @@ const CONTENT_TYPES = {
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://localhost:${PORT}`);
+    for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value);
     if (url.pathname.startsWith('/api/')) {
       await handleApi(req, res, url);
     } else {

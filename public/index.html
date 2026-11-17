@@ -338,6 +338,21 @@
       </div>
       <button type="button" id="result-new" class="link-btn link-quiet">Start a new check-in</button>
     </section>
+
+    <!-- PRIVACY NOTE (Plan.md B3-6). Shown under every screen. No health data in it. -->
+    <footer class="app-footer">
+      <details id="privacy">
+        <summary>About your data</summary>
+        <div class="privacy-body">
+          <p><strong>What's collected:</strong> your setup answers (when your last period started, your typical cycle length, whether you use hormonal contraception, two questions about your usual patterns, your usual workout days and your goal), each check-in, the recommendation you got, and which button you tapped. No name, email or account: you're a random ID linked to your personal invite.</p>
+          <p><strong>AI:</strong> to write your recommendation, your check-in answers and cycle day are sent to an AI model (through OpenRouter). Your ID and invite aren't sent.</p>
+          <p><strong>Analytics:</strong> PostHog records page visits, a few button clicks and screen recordings so I can improve the app. Your health answers and recommendations are hidden in those recordings and are never sent to PostHog.</p>
+          <p><strong>Where it's stored:</strong> a Supabase database in the US. Only the app's server can read it.</p>
+          <p><strong>Deleting it:</strong> all data is deleted when the semester ends, by December 31, 2026. To delete yours sooner, message Julia.</p>
+          <p>CycleSync gives workout suggestions, not medical advice.</p>
+        </div>
+      </details>
+    </footer>
   </main>
   <script src="analytics.js"></script>
   <script src="app.js"></script>

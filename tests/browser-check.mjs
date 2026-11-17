@@ -528,6 +528,20 @@ try {
   await waitFor(() => isShown('screen-onboarding'));
   check('after a reload (no code in the address) she still gets in', await isShown('screen-onboarding'));
 
+  console.log('\n— Privacy note and security headers —');
+  check('"About your data" shows under the screen, closed', (await isShown('privacy')) && !(await js(`return document.getElementById('privacy').open`)));
+  await js(`document.querySelector('#privacy summary').click()`);
+  await sleep(150);
+  const privacy = await text('privacy');
+  check('it opens and covers what, AI, analytics, where, and deletion by Dec 31, 2026',
+    ['collected', 'OpenRouter', 'PostHog', 'Supabase', 'December 31, 2026', 'not medical advice'].every((w) => privacy.includes(w)), privacy.slice(0, 80));
+  await shot('privacy-note');
+  await js(`document.querySelector('#privacy summary').click()`);
+  const headers = await fetch(`${BASE}/`).then((r) => Object.fromEntries(r.headers));
+  check('security headers from vercel.json are sent (CSP, no-referrer, nosniff, no framing)',
+    headers['content-security-policy']?.includes("default-src 'self'") && headers['referrer-policy'] === 'no-referrer' && headers['x-content-type-options'] === 'nosniff' && headers['x-frame-options'] === 'DENY',
+    JSON.stringify(headers));
+
   // ===== 7. Analytics: what PostHog would receive =====
   console.log('\n— Analytics (fake PostHog key; nothing goes online) —');
   // A stand-in for PostHog's script. It runs every event through the app's
