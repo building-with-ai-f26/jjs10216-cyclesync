@@ -42,6 +42,21 @@ const seedDb = () => JSON.stringify({
 writeFileSync(join(WORK, 'db.json'), seedDb());
 writeFileSync(join(WORK, 'db-ph.json'), seedDb());
 
+// Each test user gets their own invite, so the rate limit (5 AI check-ins per
+// 10 minutes per invite) never trips by accident. The server reads the data
+// file on every request, so a new invite works straight away.
+const userCodes = {};
+function newInvite(base, id) {
+  const file = join(WORK, base === PH_BASE ? 'db-ph.json' : 'db.json');
+  const data = JSON.parse(readFileSync(file, 'utf8'));
+  const code = makeInviteCode();
+  const inviteId = `b0000000-0000-4000-8000-${String(Object.keys(data.invites).length + 1).padStart(12, '0')}`;
+  data.invites[inviteId] = { id: inviteId, codeHash: hashInviteCode(code), label: `user-${id.slice(0, 4)}`, createdAt: new Date().toISOString(), revokedAt: null };
+  writeFileSync(file, JSON.stringify(data));
+  userCodes[id] = code;
+  return code;
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
 function check(label, cond, detail = '') {
@@ -148,9 +163,10 @@ const BASE_PROFILE = {
 };
 
 async function makeUser(id, profile, base = BASE) {
+  const code = userCodes[id] || newInvite(base, id);
   const res = await fetch(`${base}/api/onboarding`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-invite-code': CODE },
+    headers: { 'content-type': 'application/json', 'x-invite-code': code },
     body: JSON.stringify({ userId: id, profile }),
   });
   if (!res.ok) throw new Error(await res.text());
@@ -158,14 +174,15 @@ async function makeUser(id, profile, base = BASE) {
 // Opens the app as this user. viaLink: arrive through the personal invite
 // link (/?code=...) instead of having the code saved already.
 async function openAs(id, base = BASE, { viaLink = false } = {}) {
+  const code = userCodes[id] || CODE;
   await cdp('Page.navigate', { url: `${base}/` });
   await sleep(500);
   await js(`localStorage.setItem('cyclesync.userId', '${id}')`);
   if (viaLink) {
     await js(`localStorage.removeItem('cyclesync.inviteCode')`);
-    await cdp('Page.navigate', { url: `${base}/?code=${CODE}` });
+    await cdp('Page.navigate', { url: `${base}/?code=${code}` });
   } else {
-    await js(`localStorage.setItem('cyclesync.inviteCode', '${CODE}')`);
+    await js(`localStorage.setItem('cyclesync.inviteCode', '${code}')`);
     await cdp('Page.reload');
   }
   await waitFor(() => js(`return !document.getElementById('screen-checkin').hidden || !document.getElementById('screen-onboarding').hidden`));
@@ -463,6 +480,28 @@ try {
     await openAs(id);
     check('day 41: no "late" prompt', !(await isShown('period-box')));
   }
+
+  // ===== 5b. Rate limit =====
+  console.log('\n— Rate limit —');
+  const busy = '99999999-9999-4999-8999-999999999999';
+  await makeUser(busy, { ...BASE_PROFILE, lastPeriodStart: iso(-9) });
+  const quick = { workout: { type: 'walk_yoga' }, energy: 3, sleep: 'ok', symptoms: ['none'], soreness: null };
+  const statuses = await Promise.all(Array.from({ length: 30 }, () => fetch(`${BASE}/api/checkin`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-invite-code': userCodes[busy] },
+    body: JSON.stringify({ userId: busy, today: iso(0), checkin: quick }),
+  }).then((r) => r.status)));
+  check('30 rapid check-ins → 5 get through, 25 refused with 429',
+    statuses.filter((x) => x === 200).length === 5 && statuses.filter((x) => x === 429).length === 25, statuses.join(','));
+  await openAs(busy);
+  await tap('workoutType', 'walk_yoga');
+  await tap('energy', '3');
+  await tap('sleep', 'ok');
+  await tap('symptoms', 'none');
+  await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
+  await waitFor(() => isShown('checkin-error'));
+  check('the 6th, from the screen, shows "try again in a few minutes"', (await text('checkin-error')) === "You've checked in a lot just now. Try again in a few minutes.", await text('checkin-error'));
+  await shot('rate-limited');
 
   // ===== 6. Invite links and new visitors =====
   console.log('\n— Invite links —');
