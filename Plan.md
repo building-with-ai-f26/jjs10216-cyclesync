@@ -351,6 +351,46 @@ Today is Tue Nov 17. Each 🤖 step is one small commit, with `npm test` (and `n
 
 **Total:** about 9 h for the agent's steps and about 3.5 h for Julia's (plus waiting on the org approval). **Live (step 9 done) by Thu Nov 19**, so the weekend is free for design and inviting friends.
 
+### Where we stopped (Tue Nov 17, end of day)
+
+**Done:** steps 0–8. The app is live at https://jjs10216-cyclesync.vercel.app with Supabase. Vercel has 6 environment variables (Production only), Fluid compute is on, Node is 26.x. Last commit: `c048955`.
+
+**Step 9 is half done.**
+- ✅ Live checks that need no invite all pass (`npm run test:live`, part 1):
+  - all 6 data routes return 401 without a code or with a made-up code
+  - 10 private paths return 404
+  - no secrets in the 7 served files
+  - all security headers present
+- ✅ Git history: no real keys (only fake test keys and the `.env.example` placeholder); `.env` and `data/` were never committed.
+- ✅ `npm audit`: 0 vulnerabilities (no packages; empty `package-lock.json` committed).
+- ✅ Security review finding fixed: on Vercel only the 4.5 MB platform limit applied to request bodies. `lib/request.js` now refuses anything over 100 KB with a 413. Pushed in `c048955`.
+  - ⏳ Not yet confirmed: that Vercel finished redeploying `c048955` (Deployments → Ready).
+
+**Still to do in step 9, in order:**
+1. 🙋 **The two test invites (`security-check-a`, `security-check-b`) have NOT been added to Supabase yet.**
+   - Their codes were kept only in the agent's temporary scratchpad, which may be cleared overnight.
+   - If it's a new session, or that file is gone, **don't paste yesterday's SQL.** 🤖 makes two new test invites and gives 🙋 the new SQL line.
+2. 🤖 Run `npm run test:live` part 2 with the two test invites:
+   - invite B can't reach invite A's tester
+   - odd input and a 2 MB request are refused
+   - 30 rapid check-ins let 5 through (≈ $0.001 of real AI) and refuse 25
+   - responses save
+3. 🙋 Console test (class check 1), with screenshots, using the snippet from the Nov 17 chat:
+   - (a) live site console: blocked by the Content-Security-Policy
+   - (b) `about:blank` console: ADD and DELETE both refused with 401 / `42501`
+   - (c) Table Editor: `security-check-a` is still there and there's no `console-test` row
+4. 🙋 Real check-in on her phone:
+   - add `APP_URL=https://jjs10216-cyclesync.vercel.app` to `.env`, run `npm run invite -- julia`, paste the SQL line, open the link on her phone
+   - full check-in + a response
+   - check the rows in Supabase (`source` = `ai`)
+   - check PostHog: funnel events with `source: "app"`, no `code=` in URLs, health areas blank in the replay
+5. 🙋 Revoke both test invites afterwards:
+   `update public.invites set revoked_at = now() where label like 'security-check-%';`
+
+**Then:** step 10 (SECURITY.md), step 11 (AGENTS.md, with both "rules from real mistakes" from B3-9), step 12 (invite friends).
+
+**Housekeeping:** `data/cyclesync-db.backup-2026-11-17.json` is the backup from before the test-data cleanup in step 6. It's ignored by Git. 🙋 Delete it once you're happy that your local data is fine.
+
 ## B3-9. AGENTS.md additions (drafts)
 
 **Ask me first:**
