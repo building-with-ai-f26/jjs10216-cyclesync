@@ -4,6 +4,7 @@
 //   - A safety rule fires → { ok, checkinId, safety: [{ rule, message }] }. The AI never runs.
 //   - Otherwise           → { ok, checkinId, recommendation, cycle: { cycleDay, phase } }
 //   - Over the rate limit → 429 { error }. Nothing saved, no AI call.
+import { readJson } from '../lib/request.js';
 import { getProfile } from '../lib/db.js';
 import { isValidUserId } from '../lib/profile.js';
 import { validateCheckin } from '../lib/checkin.js';
@@ -14,12 +15,8 @@ import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invi
 export async function POST(request) {
   const invite = await inviteFor(request);
   if (!invite) return inviteRequired();
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return error(400, 'Could not read the request.');
-  }
+  const { body, problem } = await readJson(request);
+  if (problem) return problem;
   if (!isValidUserId(body?.userId)) return error(400, 'Invalid user ID.');
   if (!isValidToday(body.today)) return error(400, "Today's date looks wrong. Please reload the page.");
   const profile = await getProfile(body.userId);

@@ -9,7 +9,8 @@
     "test:browser": "node tests/browser-check.mjs",
     "test:ai": "node --env-file-if-exists=.env tests/real-ai.mjs",
     "test:security": "node --env-file-if-exists=.env tests/security-supabase.mjs",
-    "invite": "node --env-file-if-exists=.env scripts/invite.mjs"
+    "invite": "node --env-file-if-exists=.env scripts/invite.mjs",
+    "test:live": "node tests/live-check.mjs"
   },
   "engines": {
     "node": ">=22"

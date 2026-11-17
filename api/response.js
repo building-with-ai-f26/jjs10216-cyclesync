@@ -1,6 +1,7 @@
 // POST /api/response  { userId, checkinId, response }
 // Saves what she tapped on the recommendation card, attached to that check-in.
 // Needs a valid invite code (lib/invites.js).
+import { readJson } from '../lib/request.js';
 import { getProfile, saveResponse } from '../lib/db.js';
 import { isValidUserId } from '../lib/profile.js';
 import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invites.js';
@@ -10,12 +11,8 @@ export const RESPONSES = ['do_this', 'original_plan', 'something_else', 'rest'];
 export async function POST(request) {
   const invite = await inviteFor(request);
   if (!invite) return inviteRequired();
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return error(400, 'Could not read the request.');
-  }
+  const { body, problem } = await readJson(request);
+  if (problem) return problem;
   if (!isValidUserId(body?.userId)) return error(400, 'Invalid user ID.');
   if (typeof body.checkinId !== 'string') return error(400, 'Missing check-in ID.');
   if (!RESPONSES.includes(body.response)) return error(400, 'Unknown response.');

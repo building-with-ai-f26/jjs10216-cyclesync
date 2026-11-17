@@ -1,6 +1,7 @@
 // GET  /api/onboarding?userId=...   → her saved onboarding answers (or 404)
 // POST /api/onboarding  { userId, profile }  → checks and saves them
 // Both need a valid invite code in the x-invite-code header (lib/invites.js).
+import { readJson } from '../lib/request.js';
 import { getProfile, saveProfile } from '../lib/db.js';
 import { isValidUserId, validateProfile } from '../lib/profile.js';
 import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invites.js';
@@ -20,12 +21,8 @@ export async function GET(request) {
 export async function POST(request) {
   const invite = await inviteFor(request);
   if (!invite) return inviteRequired();
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return error(400, 'Could not read the request.');
-  }
+  const { body, problem } = await readJson(request);
+  if (problem) return problem;
   if (!isValidUserId(body?.userId)) return error(400, 'Invalid user ID.');
 
   const result = validateProfile(body.profile);

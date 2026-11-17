@@ -1,4 +1,5 @@
 // POST /api/period  { userId, date }  → "My period started" (updates her last period start)
+import { readJson } from '../lib/request.js';
 import { getProfile, updatePeriodStart } from '../lib/db.js';
 import { isValidUserId, isValidPeriodDate } from '../lib/profile.js';
 import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invites.js';
@@ -6,12 +7,8 @@ import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invi
 export async function POST(request) {
   const invite = await inviteFor(request);
   if (!invite) return inviteRequired();
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return error(400, 'Could not read the request.');
-  }
+  const { body, problem } = await readJson(request);
+  if (problem) return problem;
   if (!isValidUserId(body?.userId)) return error(400, 'Invalid user ID.');
   if (!isValidPeriodDate(body.date)) return error(400, 'Invalid date.');
 

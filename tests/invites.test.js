@@ -135,3 +135,15 @@ test('labels must be nicknames: lowercase, numbers and dashes only', () => {
   for (const ok of ['tester-3', 'dev', 'a1']) assert.match(ok, invites.LABEL_FORMAT);
   for (const bad of ['Julia Simon', "x'); drop table invites;--", '', 'a'.repeat(31)]) assert.doesNotMatch(bad, invites.LABEL_FORMAT);
 });
+
+// Build 3 security review: on Vercel only Vercel's 4.5 MB limit applied, so
+// the api/ files now refuse bodies over 100 KB themselves (lib/request.js).
+test('a request body over 100 KB → 413 on every route that takes one, nothing saved', async () => {
+  const before = readFileSync(file, 'utf8');
+  const big = { userId: userA, today, checkin, profile, date: today, checkinId: 'x', response: 'rest', pad: 'x'.repeat(150_000) };
+  for (const route of [api.onboarding, api.period, api.checkin, api.response]) {
+    const res = await post(route, big, codeA);
+    assert.equal(res.status, 413);
+  }
+  assert.equal(readFileSync(file, 'utf8'), before);
+});
