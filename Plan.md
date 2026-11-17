@@ -308,7 +308,7 @@ A short "About your data" link on the welcome screen and in the footer:
 - **Analytics:** PostHog records page visits, button clicks and screen recordings, but **health answers and the recommendation card are hidden** and never sent.
 - **Where it's stored:** Supabase (a hosted database) in the US. Only the app's server can read it.
 - **Deleting it:** all data is deleted when the semester ends (by Dec 31, 2026). To delete yours sooner, message Julia.
-- 🙋 Julia approves the exact wording, and picks the Supabase region when creating the project.
+- ✅ Wording approved by Julia on Nov 17, including two additions: the AI line (OpenRouter) and "not medical advice". Supabase region: East US.
 
 ## B3-7. Security audit (SECURITY.md)
 
@@ -362,7 +362,9 @@ Today is Tue Nov 17. Each 🤖 step is one small commit, with `npm test` (and `n
 - Anything that costs money (real AI runs beyond `npm run test:ai`)
 - Changing what PostHog records
 
-**Rule from a real mistake:** *The "Set today as day 1?" prompt showed up on its own because a CSS rule (`display: flex`) overrode the `hidden` attribute. Keep the global `[hidden] { display: none !important; }` rule in `styles.css`. Show or hide elements only with `hidden`, never by setting `display` in JavaScript. When adding a prompt that should start hidden, add a browser-check step that confirms it isn't visible.*
+**Rules from real mistakes:**
+- *Tests never touch real data (Nov 17, Build 3 step 6).* A new test imported `lib/db.js` before setting `CYCLESYNC_DB_FILE`, so `npm test` wrote fake invites, profiles and check-ins into the real `data/cyclesync-db.json`. The fake rows were removed and a backup kept. Rule: every test that saves data sets `CYCLESYNC_DB_FILE` to a temporary file **before** importing anything from `lib/` (use `await import(...)` inside `before()`, never a top-of-file import of `db.js`). `lib/db-local.js` refuses the real file under `node --test`; don't remove that check. After adding a test that saves data, confirm the real data file is unchanged.
+- *Hidden means hidden (Nov 10, Build 2).* The "Set today as day 1?" prompt showed up on its own because a CSS rule (`display: flex`) overrode the `hidden` attribute. Keep the global `[hidden] { display: none !important; }` rule in `styles.css`. Show or hide elements only with `hidden`, never by setting `display` in JavaScript. When adding a prompt that should start hidden, add a browser-check step that confirms it isn't visible.
 
 ## B3-10. What could go wrong
 
