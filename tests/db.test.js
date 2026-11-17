@@ -48,3 +48,13 @@ test('editing keeps the original created date', async () => {
   assert.equal(second.cycleLength, 30);
   assert.equal(second.createdAt, first.createdAt);
 });
+
+// Nov 17: a test imported lib/db.js before setting CYCLESYNC_DB_FILE and wrote
+// test rows into the real data/cyclesync-db.json. Now lib/db-local.js refuses.
+test('under node --test, the real data file is refused unless a temporary one is set', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const env = { ...process.env, NODE_TEST_CONTEXT: 'child-v8' };
+  delete env.CYCLESYNC_DB_FILE;
+  const r = spawnSync(process.execPath, ['-e', "import('./lib/db-local.js').then(() => console.log('LOADED'), (e) => console.log('REFUSED', e.message))"], { cwd: join(import.meta.dirname, '..'), env, encoding: 'utf8' });
+  assert.match(r.stdout, /REFUSED Tests must set CYCLESYNC_DB_FILE/);
+});
