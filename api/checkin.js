@@ -1,5 +1,5 @@
 // POST /api/checkin  { userId, today: "YYYY-MM-DD", checkin }
-// Checks the answers, then runs the full pipeline (lib/pipeline.js):
+// Needs a valid invite code (lib/invites.js). Checks the answers, then runs the full pipeline (lib/pipeline.js):
 // safety screen → context → AI → output checks (retry once → fallback) → save.
 //   - A safety rule fires → { ok, checkinId, safety: [{ rule, message }] }. The AI never runs.
 //   - Otherwise           → { ok, checkinId, recommendation, cycle: { cycleDay, phase } }
@@ -8,8 +8,11 @@ import { isValidUserId } from '../lib/profile.js';
 import { validateCheckin } from '../lib/checkin.js';
 import { isValidToday } from '../lib/cycle.js';
 import { runCheckin } from '../lib/pipeline.js';
+import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invites.js';
 
 export async function POST(request) {
+  const invite = await inviteFor(request);
+  if (!invite) return inviteRequired();
   let body;
   try {
     body = await request.json();
@@ -20,11 +23,12 @@ export async function POST(request) {
   if (!isValidToday(body.today)) return error(400, "Today's date looks wrong. Please reload the page.");
   const profile = await getProfile(body.userId);
   if (!profile) return error(400, 'Please finish setup first.');
+  if (!(await ownsProfile(profile, invite, body.userId))) return otherInvite();
 
   const result = validateCheckin(body.checkin);
   if (!result.ok) return error(400, result.error);
 
-  const outcome = await runCheckin({ userId: body.userId, profile, checkin: result.checkin, today: body.today });
+  const outcome = await runCheckin({ userId: body.userId, inviteId: invite.id, profile, checkin: result.checkin, today: body.today });
   return Response.json({ ok: true, ...outcome });
 }
 

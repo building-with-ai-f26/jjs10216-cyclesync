@@ -20,6 +20,7 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { makeInviteCode, hashInviteCode } from '../lib/invites.js';
 
 const REPO = join(import.meta.dirname, '..');
 const WORK = mkdtempSync(join(tmpdir(), 'cyclesync-browser-'));
@@ -31,6 +32,15 @@ const DEBUG_PORT = 9334;
 const BASE = `http://localhost:${PORT}`;
 const PH_BASE = `http://localhost:${PH_PORT}`;
 const FAKE_KEY = 'phc_browser_check_fake_key';
+
+// Build 3: every data call needs an invite. Both test servers start with one.
+const CODE = makeInviteCode();
+const seedDb = () => JSON.stringify({
+  invites: { 'b0000000-0000-4000-8000-000000000001': { id: 'b0000000-0000-4000-8000-000000000001', codeHash: hashInviteCode(CODE), label: 'browser-check', createdAt: new Date().toISOString(), revokedAt: null } },
+  profiles: {}, checkins: {},
+});
+writeFileSync(join(WORK, 'db.json'), seedDb());
+writeFileSync(join(WORK, 'db-ph.json'), seedDb());
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
@@ -140,16 +150,24 @@ const BASE_PROFILE = {
 async function makeUser(id, profile, base = BASE) {
   const res = await fetch(`${base}/api/onboarding`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-invite-code': CODE },
     body: JSON.stringify({ userId: id, profile }),
   });
   if (!res.ok) throw new Error(await res.text());
 }
-async function openAs(id, base = BASE) {
+// Opens the app as this user. viaLink: arrive through the personal invite
+// link (/?code=...) instead of having the code saved already.
+async function openAs(id, base = BASE, { viaLink = false } = {}) {
   await cdp('Page.navigate', { url: `${base}/` });
   await sleep(500);
   await js(`localStorage.setItem('cyclesync.userId', '${id}')`);
-  await cdp('Page.reload');
+  if (viaLink) {
+    await js(`localStorage.removeItem('cyclesync.inviteCode')`);
+    await cdp('Page.navigate', { url: `${base}/?code=${CODE}` });
+  } else {
+    await js(`localStorage.setItem('cyclesync.inviteCode', '${CODE}')`);
+    await cdp('Page.reload');
+  }
   await waitFor(() => js(`return !document.getElementById('screen-checkin').hidden || !document.getElementById('screen-onboarding').hidden`));
 }
 const visibleStep = () => js(`return [...document.querySelectorAll('.step')].filter((s) => !s.hidden).map((s) => s.dataset.step).join(',')`);
@@ -446,14 +464,30 @@ try {
     check('day 41: no "late" prompt', !(await isShown('period-box')));
   }
 
-  // ===== 6. New visitor =====
-  console.log('\n— New visitor —');
+  // ===== 6. Invite links and new visitors =====
+  console.log('\n— Invite links —');
   await cdp('Page.navigate', { url: `${BASE}/` });
   await sleep(300);
   await js(`localStorage.clear()`);
   await cdp('Page.reload');
+  await waitFor(() => isShown('screen-invite'));
+  check('no invite code → the invite-only screen, nothing else', await isShown('screen-invite') && !(await isShown('screen-onboarding')) && !(await isShown('screen-checkin')));
+  await shot('invite-only');
+
+  await cdp('Page.navigate', { url: `${BASE}/?code=not-a-real-code-at-all` });
+  await waitFor(() => isShown('screen-invite'));
+  check('a wrong code → the invite-only screen', await isShown('screen-invite'));
+  check('…and the wrong code is removed from the address bar too', !(await js(`return location.href`)).includes('code='), await js(`return location.href`));
+
+  await cdp('Page.navigate', { url: `${BASE}/?code=${CODE}` });
   await waitFor(() => isShown('screen-onboarding'));
-  check('a new visitor sees onboarding', await isShown('screen-onboarding'));
+  check('a new visitor with her invite link sees onboarding', await isShown('screen-onboarding'));
+  const href = await js(`return location.href`);
+  check('the code is removed from the address bar right away', href === `${BASE}/`, href);
+  check('the code is saved in this browser', (await js(`return localStorage.getItem('cyclesync.inviteCode')`)) === CODE);
+  await cdp('Page.reload');
+  await waitFor(() => isShown('screen-onboarding'));
+  check('after a reload (no code in the address) she still gets in', await isShown('screen-onboarding'));
 
   // ===== 7. Analytics: what PostHog would receive =====
   console.log('\n— Analytics (fake PostHog key; nothing goes online) —');
@@ -497,8 +531,10 @@ try {
 
   const phUser = '77777777-7777-4777-8777-777777777777';
   await makeUser(phUser, { ...BASE_PROFILE, lastPeriodStart: iso(-21) }, PH_BASE);
-  await openAs(phUser, PH_BASE);
+  await openAs(phUser, PH_BASE, { viaLink: true }); // arrives through her invite link
   await waitFor(() => js(`return !!window.__ph?.config`));
+  const firstUrl = await js(`return __ph.sent[0]?.properties.$current_url`);
+  check('PostHog\'s first pageview URL has no invite code', firstUrl === `${PH_BASE}/`, firstUrl);
   check('PostHog script requested from us-assets.i.posthog.com', phRequests[0] === 'https://us-assets.i.posthog.com/static/array.js', phRequests[0]);
   check('it starts with the key from .env', (await js(`return __ph.key`)) === FAKE_KEY);
   check('replay settings: inputs masked, health screens blocked',
@@ -567,6 +603,7 @@ try {
   const leaks = ['cramps', 'heavy_flow', 'soakingHourly', 'a_lot', 'poor', 'tempo', 'lower', 'heavy"', 'menstrual', 'follicular', 'luteal', 'ADJUST', 'SWAP', 'KEEP', 'REST', '"energy', 'Day ', 'cycleDay', 'phase', 'verdict', 'safety', cardText.trim().slice(0, 25), safetyText.slice(0, 25)]
     .filter((w) => w && all.includes(w));
   check('no health answers, symptoms, cycle day, phase, verdict or card text in any event', leaks.length === 0, leaks.join(', '));
+  check('the invite code is in no event', !all.includes(CODE));
   await cdp('Fetch.disable');
 } catch (err) {
   failures++;

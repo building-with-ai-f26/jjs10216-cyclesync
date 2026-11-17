@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CycleSync</title>
+  <meta name="referrer" content="no-referrer" />
+  <!-- First: takes the invite code out of the address bar before PostHog loads. -->
+  <script src="invite.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -13,6 +16,12 @@
     </header>
 
     <p id="loading" class="muted">Loading…</p>
+
+    <!-- INVITE ONLY: shown when there's no valid invite code in this browser. -->
+    <section id="screen-invite" hidden>
+      <h1>CycleSync is invite-only</h1>
+      <p class="muted">Please open the personal invite link Julia sent you. If it isn't working, ask her for a new one.</p>
+    </section>
 
     <!-- ONBOARDING (once). "ph-no-capture" hides health answers from PostHog replays and click tracking. -->
     <section id="screen-onboarding" hidden>

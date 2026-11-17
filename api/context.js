@@ -1,11 +1,15 @@
 // GET /api/context?userId=...&today=YYYY-MM-DD
 // Everything the check-in screen needs to open: her setup answers plus
 // today's cycle day and estimated phase. 404 means she hasn't set up yet.
+// Needs a valid invite code (lib/invites.js).
 import { getProfile } from '../lib/db.js';
 import { isValidUserId } from '../lib/profile.js';
 import { cycleContext, isValidToday } from '../lib/cycle.js';
+import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invites.js';
 
 export async function GET(request) {
+  const invite = await inviteFor(request);
+  if (!invite) return inviteRequired();
   const params = new URL(request.url).searchParams;
   const userId = params.get('userId');
   const today = params.get('today');
@@ -14,6 +18,7 @@ export async function GET(request) {
 
   const profile = await getProfile(userId);
   if (!profile) return error(404, 'No onboarding answers saved yet.');
+  if (!(await ownsProfile(profile, invite, userId))) return otherInvite();
 
   return Response.json({ profile, cycle: cycleContext(profile, today) });
 }

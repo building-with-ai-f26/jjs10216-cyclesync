@@ -8,7 +8,7 @@ import { join } from 'node:path';
 
 const dir = mkdtempSync(join(tmpdir(), 'cyclesync-pipeline-'));
 const file = join(dir, 'db.json');
-let runCheckin, FALLBACK_MESSAGE, getCheckin, responseApi, checkinApi;
+let runCheckin, FALLBACK_MESSAGE, getCheckin, responseApi, checkinApi, inviteCode;
 
 before(async () => {
   process.env.CYCLESYNC_DB_FILE = file;
@@ -16,7 +16,10 @@ before(async () => {
   ({ runCheckin, FALLBACK_MESSAGE } = await import('../lib/pipeline.js'));
   ({ getCheckin } = await import('../lib/db.js'));
   const db = await import('../lib/db.js');
-  await db.saveProfile(userId, profile);
+  const invites = await import('../lib/invites.js');
+  inviteCode = invites.makeInviteCode();
+  const inviteId = await db.addInvite('test', invites.hashInviteCode(inviteCode));
+  await db.saveProfile(userId, profile, inviteId);
   responseApi = await import('../api/response.js');
   checkinApi = await import('../api/checkin.js');
 });
@@ -150,7 +153,7 @@ test('the default (mock) AI gives a checked recommendation, saved as "mock"', as
 });
 
 // ---------- Saving: check-in, recommendation and response linked by one ID ----------
-const post = (api, body) => api.POST(new Request('http://x/api', { method: 'POST', body: JSON.stringify(body) })).then(async (r) => ({ status: r.status, data: await r.json() }));
+const post = (api, body) => api.POST(new Request('http://x/api', { method: 'POST', headers: { 'x-invite-code': inviteCode }, body: JSON.stringify(body) })).then(async (r) => ({ status: r.status, data: await r.json() }));
 
 test('API: check-in → card → response, all saved under one check-in ID', async () => {
   const { data } = await post(checkinApi, { userId, today, checkin: normal });

@@ -66,14 +66,22 @@ function setRadio(form, name, value) {
   if (el) el.checked = true;
 }
 
+// Every API call carries her invite code (public/invite.js). If the server
+// says the code is missing or unknown, show the invite-only screen.
 async function api(path, options = {}) {
   const res = await fetch(path, {
     ...options,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-invite-code': globalThis.csInvite?.get() || '' },
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && data.invite === 'required') {
+    showScreen('invite');
+    throw new InviteRequired();
+  }
   return { ok: res.ok, status: res.status, data };
 }
+
+class InviteRequired extends Error {}
 
 // ---------- Onboarding ----------
 const onboardingForm = $('onboarding-form');
@@ -647,6 +655,7 @@ async function start() {
   showScreen('checkin');
 }
 
-start().catch(() => {
+start().catch((err) => {
+  if (err instanceof InviteRequired) return; // the invite-only screen is already showing
   $('loading').textContent = 'Could not reach the server. Is it running?';
 });

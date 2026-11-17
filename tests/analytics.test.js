@@ -179,3 +179,30 @@ test('/api/config: no key → no analytics', async () => {
     if (saved.host === undefined) delete process.env.POSTHOG_HOST; else process.env.POSTHOG_HOST = saved.host;
   }
 });
+
+// Build 3: invite codes never reach PostHog. public/invite.js removes the code
+// from the address bar before PostHog loads; this is the second layer.
+test('an invite code in any URL property is removed before the event is sent', () => {
+  const { config } = loadAnalytics();
+  const code = 'AbCdEfGhIjKlMnOpQrStUv';
+  const out = plain(config.before_send({
+    event: '$pageview',
+    properties: {
+      $current_url: `https://cyclesync.vercel.app/?code=${code}`,
+      $referrer: `https://cyclesync.vercel.app/?utm=x&code=${code}#top`,
+      $pathname: '/',
+    },
+    $set_once: { $initial_current_url: `https://cyclesync.vercel.app/?code=${code}` },
+  }));
+  assert.doesNotMatch(JSON.stringify(out), new RegExp(code));
+  assert.equal(out.properties.$current_url, 'https://cyclesync.vercel.app/?code=removed');
+  assert.equal(out.properties.$referrer, 'https://cyclesync.vercel.app/?utm=x&code=removed#top');
+  assert.equal(out.properties.$pathname, '/');
+});
+
+test('invite.js loads in <head> before analytics.js, so PostHog never sees the code', () => {
+  const invite = html.indexOf('<script src="invite.js">');
+  const analytics = html.indexOf('<script src="analytics.js">');
+  assert.ok(invite > 0 && invite < html.indexOf('</head>'), 'invite.js is in <head>');
+  assert.ok(invite < analytics, 'invite.js runs before analytics.js');
+});

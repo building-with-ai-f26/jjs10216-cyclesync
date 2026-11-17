@@ -60,7 +60,11 @@ async function handleApi(req, res, url) {
   const body = hasBody ? await readBody(req) : undefined;
   const request = new Request(url, {
     method: req.method,
-    headers: { 'content-type': req.headers['content-type'] || '' },
+    // Only the headers the api/ files use: the body type and the invite code.
+    headers: {
+      'content-type': req.headers['content-type'] || '',
+      'x-invite-code': req.headers['x-invite-code'] || '',
+    },
     body,
   });
 

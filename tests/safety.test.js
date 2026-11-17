@@ -86,22 +86,26 @@ test('the Build 3 rules are not in Build 2: heavy flow + tired with no signs pas
 const dir = mkdtempSync(join(tmpdir(), 'cyclesync-safety-'));
 const userId = '7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
 let POST;
+let inviteCode;
 
 before(async () => {
   process.env.CYCLESYNC_DB_FILE = join(dir, 'db.json');
   process.env.AI_MODE = 'mock'; // never call the real AI from npm test
   const db = await import('../lib/db.js');
+  const invites = await import('../lib/invites.js');
+  inviteCode = invites.makeInviteCode();
+  const inviteId = await db.addInvite('test', invites.hashInviteCode(inviteCode));
   await db.saveProfile(userId, {
     lastPeriodStart: '2026-11-07', cycleLength: 28, contraception: 'no',
     patterns: { energyLowerBeforePeriod: 'yes', crampsAffectWorkouts: 'sometimes' },
     workoutDays: ['mon'], goal: 'stay_consistent',
-  });
+  }, inviteId);
   ({ POST } = await import('../api/checkin.js'));
 });
 after(() => rmSync(dir, { recursive: true, force: true }));
 
 const send = (checkin) =>
-  POST(new Request('http://x/api/checkin', { method: 'POST', body: JSON.stringify({ userId, today: new Date().toISOString().slice(0, 10), checkin }) })).then(async (r) => ({ status: r.status, data: await r.json() }));
+  POST(new Request('http://x/api/checkin', { method: 'POST', headers: { 'x-invite-code': inviteCode }, body: JSON.stringify({ userId, today: new Date().toISOString().slice(0, 10), checkin }) })).then(async (r) => ({ status: r.status, data: await r.json() }));
 
 test('API: soaking hourly → only the safety message comes back, no workout', async () => {
   const { status, data } = await send({ ...base, symptoms: ['heavy_flow'], heavyFlow: { ...allNo, soakingHourly: true } });

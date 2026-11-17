@@ -44,7 +44,23 @@
     }
 
     props.source = 'app';
-    return { ...event, properties: props };
+    const cleaned = { ...event, properties: removeInviteCodes(props) };
+    if (event.$set) cleaned.$set = removeInviteCodes(event.$set);
+    if (event.$set_once) cleaned.$set_once = removeInviteCodes(event.$set_once);
+    return cleaned;
+  }
+
+  // Second layer behind public/invite.js: if a URL with ?code=... ever reaches
+  // an event (page URL, referrer, initial URL...), the code is replaced.
+  function removeInviteCodes(value) {
+    if (typeof value === 'string') return value.replace(/([?&])code=[^&#\s]*/g, '$1code=removed');
+    if (Array.isArray(value)) return value.map(removeInviteCodes);
+    if (value && typeof value === 'object') {
+      const out = {};
+      for (const [k, v] of Object.entries(value)) out[k] = removeInviteCodes(v);
+      return out;
+    }
+    return value;
   }
 
   // Builds a funnel event's properties from the allowlist only.
@@ -116,7 +132,7 @@
     }
   }
 
-  globalThis.csAnalytics = { track, cleanEvent, pickProperties, postHogConfig, FUNNEL, ALLOWED_VALUES };
+  globalThis.csAnalytics = { track, cleanEvent, removeInviteCodes, pickProperties, postHogConfig, FUNNEL, ALLOWED_VALUES };
   if (typeof document !== 'undefined' && typeof fetch === 'function' && globalThis.location?.protocol?.startsWith('http')) {
     init();
   }
