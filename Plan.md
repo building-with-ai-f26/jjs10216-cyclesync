@@ -230,7 +230,7 @@ If Haiku's prescriptions feel generic in step 7, try Sonnet 5.5 by changing one 
 # Build 3 Plan: live for friend testers
 
 **Due:** Monday, Nov 23, 2026 (Beginner lane)
-**Status:** Plan only. Waiting for Julia's approval before any code.
+**Status:** Approved Nov 17, 2026. Target: live by **Thu Nov 19**.
 **Goal:** Friends open a personal invite link on their phone, do real check-ins on the live Vercel site, and their data is saved in Supabase. Only our server can read or write that data. A security audit (SECURITY.md) shows it was checked.
 
 This replaces the Upstash suggestion in section 2b: we're using **Supabase** instead.
@@ -312,7 +312,14 @@ A short "About your data" link on the welcome screen and in the footer:
 
 ## B3-7. Security audit (SECURITY.md)
 
-- **The 7 checks from class:** 🙋 **Julia, please paste the class's list of 7 checks.** It isn't in the repo, and I don't want to guess the wording. For each check, SECURITY.md records the check, how it was tested, the result (pass/fail with evidence), and any fix.
+- **The 7 checks from class**, each recorded in SECURITY.md under: *My kind of app, What I checked, What I found, What I fixed, What is left*:
+  1. **RLS on every table**, proven with the test for our kind of app (no sign-in, saves data). From the **live site's browser console**, use the publishable key to try to add a row and delete a row. The add must be refused and the delete must change nothing. 🙋 Screenshot it. `npm run test:security` runs the same attempts on every table.
+  2. **Secret keys stay on the server:** search the live site's code (every file it serves) for `sb_secret_`, `service_role`, `sk_` and the real key values. Also search the Git history.
+  3. **Private storage:** files shared only through links that expire. We store no files (no Supabase Storage buckets), so SECURITY.md notes that.
+  4. **Production out of the agent's reach:** dev = laptop + JSON file, prod = Vercel + Supabase. The agent has no Supabase or Vercel keys. Backups: 🙋 check what Supabase's free plan includes. If there are no automatic backups, record that under "What is left" and do a manual export before inviting friends.
+  5. **Spending caps:** the $2 hard cap on the live OpenRouter key + the rate limit on `/api/checkin` (B3-5).
+  6. **Dependencies:** `npm audit`, and fix anything rated high. We have zero packages, so the expected result is 0 problems (npm needs a lockfile to run it; I'll create one with no dependencies in it).
+  7. **A review by the agent:** attack the live app, then fix what's found. Planned attacks: missing, wrong or forwarded code; another person's browser ID; oversized or odd input; trying to read other files; 30 rapid calls; trying to get the AI to ignore its rules through the check-in fields.
 - **Required security test (no sign-in, saves data):** `npm run test:security` calls the Supabase REST API directly with the **publishable** key (public by design, so it's OK in the local `.env`; the secret key is not). For every table it tries to read, add, change and delete rows, and to run `take_ai_slot`. **It passes only if every attempt is refused** (401/403 or "permission denied"). It also tries the same with no key at all.
 - **Live API checks**, recorded in SECURITY.md:
   - no code → 401
@@ -328,7 +335,7 @@ Today is Tue Nov 17. Each 🤖 step is one small commit, with `npm test` (and `n
 
 | # | Step | Who | Time | How it's checked |
 | --- | --- | --- | --- | --- |
-| 0 | **Accounts, asked early:** Vercel account; ask an org owner to approve Vercel's GitHub app for `building-with-ai-f26` (fallback: deploy from the laptop with the Vercel command-line tool); Supabase project (pick the region); new OpenRouter key "cyclesync-live" ($2 limit, training off). Paste the 7 class checks into chat. | 🙋 | 45 min + waiting on approval | Accounts exist; nothing pasted into chat except the checklist |
+| 0 | **Accounts, asked early:** Vercel account; ask an org owner to approve Vercel's GitHub app for `building-with-ai-f26` (fallback: deploy from the laptop with the Vercel command-line tool); Supabase project (pick the region); new OpenRouter key "cyclesync-live" ($2 limit, training off). (GitHub app requested Nov 17.) | 🙋 | 45 min + waiting on approval | Accounts exist; no keys pasted into chat |
 | 1 | **Supabase SQL:** write `supabase/schema.sql` (B3-3). | 🤖 | 45 min | Reviewed by Julia line by line |
 | 2 | **Run the SQL** in the SQL Editor; disable the old keys; copy the project URL + publishable key into local `.env`; check in Table Editor that RLS shows on for all 4 tables. | 🙋 | 15 min | Every table shows "RLS enabled" |
 | 3 | **Security test first:** `tests/security-supabase.mjs` + `npm run test:security` (B3-7). Running it before the app uses Supabase proves the lock works on its own. | 🤖 | 45 min | Passes: every publishable-key attempt refused |
@@ -338,11 +345,11 @@ Today is Tue Nov 17. Each 🤖 step is one small commit, with `npm test` (and `n
 | 7 | **Privacy note + `vercel.json`** (headers). | 🤖 | 45 min | Browser check opens and closes the note; Julia approves the wording |
 | 8 | **Deploy:** connect the repo in Vercel; add environment variables (`OPENROUTER_API_KEY` live key, `OPENROUTER_MODEL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `POSTHOG_KEY`, `POSTHOG_HOST`); confirm Fluid compute is on; deploy. In PostHog, add the Vercel domain to the authorized/replay domains. | 🙋 (🤖 walks through it) | 45 min | `/api/health` answers on the live URL |
 | 9 | **Live checks:** make Julia's own invite; full check-in on her phone; row appears in Supabase; PostHog shows the funnel events with `source: "app"` and a replay with health areas blank; run the live API checks (B3-7), including 30 rapid calls with `AI_MODE=mock` set briefly in Vercel. | 🙋 + 🤖 | 1 h | Each result recorded in SECURITY.md |
-| 10 | **SECURITY.md:** the 7 class checks + results from steps 3 and 9. | 🤖 | 1 h | Every check has evidence |
+| 10 | **SECURITY.md:** the 7 class checks (B3-7) + results from steps 3 and 9, including the console screenshot, `npm audit` and the agent's attack review. | 🤖 | 1 h | Every check has evidence |
 | 11 | **AGENTS.md:** a Shipping section (how to deploy, where environment variables live, rollback with Vercel's "Promote" on an older deployment, Supabase pause); an "Ask me first" list (below); the rule from a real mistake (below); update Setup and Commands for invites and `test:security`. | 🤖 | 30 min | Julia reads it |
 | 12 | **Invite friends:** one code per friend, sent privately; Product Page Build 3 log. | 🙋 | 30 min | First friend check-in shows up in Supabase and PostHog |
 
-**Total:** about 9 h for the agent's steps and about 3.5 h for Julia's (plus waiting on the org approval). Aim to deploy (step 8) by **Fri Nov 20**, so the weekend is free for fixes and inviting friends.
+**Total:** about 9 h for the agent's steps and about 3.5 h for Julia's (plus waiting on the org approval). **Live (step 9 done) by Thu Nov 19**, so the weekend is free for design and inviting friends.
 
 ## B3-9. AGENTS.md additions (drafts)
 
