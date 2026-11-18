@@ -17,11 +17,11 @@
 
 | # | Class check | How | Status |
 | --- | --- | --- | --- |
-| 1 | RLS on every table, with the test that fits the app | `supabase/schema.sql`: RLS on all 4 tables, no policies, no grants to `anon`/`authenticated`. `npm run test:security` uses the publishable key (and no key) to try to read, add, change and delete in every table and run `take_ai_slot`. Live-site console test + screenshot: step 9. | Database test passed Nov 17. Console test to do. |
-| 2 | Secret keys stay on the server | Search the live site's files and the Git history for `sb_secret_`, `service_role`, `sk_` and the real keys | Passed Nov 17–18 (real key values: Julia to check locally) |
-| 3 | Private storage, expiring links | No files are stored and there are no Supabase Storage buckets | Not applicable (confirm in step 9) |
+| 1 | RLS on every table, with the test that fits the app | `supabase/schema.sql`: RLS on all 4 tables, no policies, no grants to `anon`/`authenticated`. `npm run test:security` uses the publishable key (and no key) to try to read, add, change and delete in every table and run `take_ai_slot`. Live-site console test + screenshot: step 9. | Passed: database test Nov 17, console test Nov 18 |
+| 2 | Secret keys stay on the server | Search the live site's files and the Git history for `sb_secret_`, `service_role`, `sk_` and the real keys | Passed Nov 17–18 (real key values: Julia checked locally Nov 18, none found) |
+| 3 | Private storage, expiring links | No files are stored and there are no Supabase Storage buckets | Not applicable: confirmed Nov 18, no buckets in Supabase Storage |
 | 4 | Production out of the agent's reach; backups | Dev and prod are separate. The agent has no Supabase or Vercel keys. Backups: see below | Partly. No backups on the free plan. |
-| 5 | Spending caps | $2 cap on the live OpenRouter key + rate limit on the AI route | Rate limit passed live Nov 18. $2 cap: Julia to confirm |
+| 5 | Spending caps | $2 cap on the live OpenRouter key + rate limit on the AI route | Passed Nov 18: rate limit live, $2 cap on the live key confirmed |
 | 6 | Dependencies | `npm audit`, fix anything rated high | Passed Nov 17: 0 vulnerabilities |
 | 7 | Agent review: attack, then fix | `npm run test:live` (tests/live-check.mjs) against the live site + manual probing | Passed Nov 18 after one fix |
 
@@ -46,6 +46,18 @@
   - **Rate limit:** 30 check-ins at once → exactly 5 got through with a recommendation card, and 25 got 429 with the friendly message.
   - **Security headers:** CSP (own files + PostHog only), `Referrer-Policy: no-referrer`, `nosniff`, `X-Frame-Options: DENY`, and HSTS.
   - **Live database:** this run was also the first end-to-end test of the Supabase storage, covering setup, read-back, check-ins, the rate-limit function and responses.
+- **Nov 18, console test (check 1), screenshots kept locally:** Julia ran the same add-and-delete snippet with the publishable key in two browser consoles.
+  - **a) On the live site:** the browser blocked the request before it reached Supabase. The Content-Security-Policy (`connect-src 'self'` + PostHog only) refused the connection to `supabase.co`. A first try had a typo in the snippet (the key was missing its quotes) and never ran.
+  - **b) In a blank tab (`about:blank`, no CSP):** the requests reached Supabase and were refused. `ADD 401` and `DELETE 401`, each with code `42501` ("permission denied for table invites").
+  - **c) Supabase Table Editor afterwards:** `invites` still had only `security-check-a` and `security-check-b`. There was no `console-test` row, and `security-check-a` was not deleted.
+- **Nov 18, Supabase Storage (check 3):** no buckets. The app stores no files.
+- **Nov 18, manual live checks (Julia):**
+  - **Real check-in on her phone:** saved in Supabase `checkins` with `source = ai`. The contraception rule held: `phase` is null.
+  - **PostHog events:** `checkin_completed` has `source: "app"`, `$current_url` has no `?code=`, and there are no energy, sleep, cramps or phase properties.
+  - **Session replay:** the setup form, the home screen's day and phase, the energy, sleep and cramps steps, and the recommendation card are all masked ("Hidden from recording").
+  - **Test invites revoked:** `security-check-a` and `security-check-b` have `revoked_at` set (Nov 18). Julia's own invite is still active.
+  - **Spending limits (check 5):** OpenRouter shows a $2 limit on the live key and $5 on the local key.
+  - **Git history, all commits (check 2):** 0 OpenRouter keys and 0 commits of `.env`. The 2 matches for `sb_secret_` are the fake test key (`sb_secret_TEST_ONLY_not_a_real_key`), not a real key.
 
 ## What I fixed
 
