@@ -1,46 +1,74 @@
 # CycleSync
 
-> **One-line pitch:** A 20-second morning check-in that tells active women whether to keep, adjust, swap, or rest today's planned workout, based on how they actually feel and where they are in their cycle.
+**A women's health AI coach.** A 20-second morning check-in that tells active women whether to keep, adjust, swap, or rest today's planned workout, based on how they actually feel and where they are in their cycle.
 
-- **Builder:** Julia Simon (`juliasimon16`)
-- **Pod:** TODO
-- **Product Page & Living PRD:** https://building-with-ai-f26.github.io/jjs10216-cyclesync/
-- **App:** runs locally / on my phone through Week 4; cloud URL added later.
-- **Build 1 Shortcut:** Try the Build 1 Shortcut on your iPhone: https://www.icloud.com/shortcuts/f85a59d313df4b9d9ca19a87a014dd6d
+**Status:** In progress, launching December 2026. · [Live app](https://jjs10216-cyclesync.vercel.app) (invite-only for testers) · [Product Page](https://building-with-ai-f26.github.io/jjs10216-cyclesync/)
 
-## Start here: Build 1
+<img src="docs/images/cyclesync-card.png" alt="A CycleSync recommendation card: ADJUST, easy 4 miles or rest instead of an 8-mile tempo run, with Do this / Original plan / Something else / Rest buttons" width="320">
 
-**Due Monday, November 9 at noon, New York time.** No class November 3; keep building that week.
+## Why
 
-1. Join the [class organization](https://github.com/building-with-ai-f26), then use this template to create a **public** repo named `<netid>-<project-slug>`. Ask Christian or Hew if the organization is missing from the owner list.
-2. Set up Git and one coding agent during the week of October 27. Follow the [Icerynk setup guide](https://www.icerynk.com/c/fa26-tech-gb-2160-dm2-f2/content/pre-class-setup-github-openrouter-your-coding-agent).
-3. Publish [`docs/index.html`](./docs/index.html): **Settings → Pages → Deploy from a branch → main → /docs → Save**. When deployment finishes, open `https://building-with-ai-f26.github.io/<your-repo-name>/`.
-4. Fill in PRD v1: a reachable user, their painful before/after workflow, one core workflow, and three non-goals.
-5. Build a rough local prototype. Add a screenshot or GIF and an honest Build 1 log to the Product Page, including progress, learning, problems, costs, and hours.
-6. Push meaningful commits on **at least two separate days each week outside class**, including the November 3 break.
-7. Submit your **Product Page URL and repository URL in Icerynk**. Come ready to demo the prototype in two minutes on November 10.
+Should women train by cycle phase? The research says no: phase effects on performance are small and inconsistent, and the main reviews recommend personalizing to each woman's own response. So CycleSync puts **how she feels first** (energy, sleep, symptoms, soreness). Cycle day and estimated phase are **context only**, and the app never claims a phase makes her stronger or weaker. Sources and strength of evidence: [research/evidence-brief.md](research/evidence-brief.md).
 
-Create your PostHog account in Week 1. Install it on the Product Page and local app in **Build 2**, then verify events. The Product Page is public from Build 1; the app can stay local through Week 4.
+## How it works
 
-## Repository map
+Tap-only check-in → safety rules in code → cycle day + estimated phase → AI recommendation → checks in code (one retry, then a rule-based fallback) → card → her response saved with the check-in.
 
-| File / folder | Purpose |
+## Safety approach
+
+- **Medical-safety rules run in code before any AI call.** Warning signs (for example, soaking a pad every hour, or cramps that are worse than usual) get a fixed message to check in with a doctor, with no workout advice. Tests confirm the AI is never called in these cases.
+- **Every AI answer is checked in code** before she sees it. The checks catch:
+  - a verdict other than the four allowed;
+  - a prescription without numbers;
+  - a workout longer or harder than planned;
+  - phase-performance claims, diet or calorie advice, and fertility talk;
+  - pushing hard on a cramp day.
+
+  A failed answer is retried once, with the AI told which rules it broke. If it fails again, a rule-based coach answers instead.
+- **Privacy:**
+  - **Invite-only:** each tester gets a personal invite link. Codes are stored only as hashes, and one invite can't reach another tester's data.
+  - **Analytics:** health answers and the recommendation card are hidden in PostHog session replays and never sent as event data.
+  - **Database:** Supabase Postgres with Row Level Security on every table and no access for the public key. Only the server, holding a key that lives only in Vercel's settings, can read or write data.
+  - **AI spending:** limited by a rate limit on AI check-ins.
+
+  Security audit (in progress): [SECURITY.md](SECURITY.md).
+
+## How it was built
+
+I'm a product manager: 5 years at CVS Health, now an NYU Stern Tech MBA. I did the research, the recommendation spec, the safety rules, the testing and the product decisions, and directed Claude Code as my engineering team. It works from three files:
+- [AGENTS.md](AGENTS.md): ground rules and commands;
+- [Plan.md](Plan.md): the build plans;
+- [research/recommendation-spec.md](research/recommendation-spec.md): exactly how a check-in becomes a recommendation.
+
+## Tech stack
+
+| Part | What |
 | --- | --- |
-| [`docs/index.html`](./docs/index.html) | Required public pitch, living PRD, and weekly build log. Update with actual work and evidence. |
-| [`Intent.md`](./Intent.md), [`Plan.md`](./Plan.md), [`journal/`](./journal/) | Optional drafting aids. No duplicate submission is required. |
-| [`AGENTS.md`](./AGENTS.md) | Local run commands, project context, and agent rules. Build 2 onward. |
-| [`tests/`](./tests/) | Verification guidance. Build 4 offers Track A domain evals **or** Track B user replays. |
-| [`SPONSOR_MEMO.md`](./SPONSOR_MEMO.md) | One-page recommendation backed by actual usage, full costs, and risks. Due December 14 at noon. |
+| **Frontend** | Plain HTML, CSS and JavaScript; no framework, no build step. Works in a phone browser. |
+| **Backend** | Node.js serverless functions on Vercel (`api/`), with **zero npm packages**. |
+| **Database** | Supabase Postgres (live, Row Level Security on every table); a local JSON file for development. |
+| **AI** | Claude Haiku 5.5 through OpenRouter, with structured JSON output. **About $0.0004 per check-in** (measured average of 16 real check-ins: $0.0002–$0.0008). Safety-screen check-ins cost $0. |
+| **Analytics** | PostHog: funnel events and session replay, with health data masked. |
+| **Testing** | 230 unit tests (Node's built-in test runner); a headless-Chrome check that clicks through every screen at phone size; a database lock test using the public key; live-site security checks. |
 
-[Icerynk](https://www.icerynk.com/c/fa26-tech-gb-2160-dm2-f2/content) holds the assignment instructions and submissions.
+## Run it locally
 
-## Local setup
-
-Clone **your own repository** and ask your coding agent to document the exact install and run commands here and in `AGENTS.md`.
+You need Node.js 22 or newer (tested on Node 26). There's nothing to install, and with no keys the app uses a free mock AI coach.
 
 ```bash
-git clone https://github.com/building-with-ai-f26/<your-repo-name>.git
-cd <your-repo-name>
+git clone https://github.com/building-with-ai-f26/jjs10216-cyclesync.git
+cd jjs10216-cyclesync
+cp .env.example .env              # works as is: no keys = free mock AI coach
+npm test                          # 230 tests, no browser, no cost
+npm run invite -- --local dev     # makes a local invite and prints your link
+npm run dev                       # then open the link it printed
 ```
 
-If your app needs API keys, use a local environment file such as `.env`. Keep private keys out of source code, browser code, screenshots, and commits. The template ignores `.env`; `.env.example` contains placeholders only.
+The app is invite-only, so open the printed `http://localhost:3000/?code=...` link, not the bare address. To use the real AI, add `OPENROUTER_API_KEY` to `.env`. `npm run test:browser` runs the click-through check; it needs Google Chrome.
+
+## Course context
+
+Built in NYU Stern's **Building with AI** course (TECH-GB 2160, Fall 2026).
+- **Builder:** Julia Simon (`juliasimon16`)
+- **Pod:** 3
+- **Links:** [Product Page](https://building-with-ai-f26.github.io/jjs10216-cyclesync/) · [AGENTS.md](AGENTS.md) · [Plan.md](Plan.md) · [SPONSOR_MEMO.md](SPONSOR_MEMO.md) · [journal/](journal/)
