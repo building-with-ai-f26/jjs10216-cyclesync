@@ -7,7 +7,7 @@
 | 1 | RLS on every table | Pass |
 | 2 | Secret keys stay on the server | Pass |
 | 3 | Private storage, expiring links | Pass (no files are stored) |
-| 4 | Production out of the agent's reach; backups | **Not fully passed:** no backups on the free plan |
+| 4 | Production out of the agent's reach; backups | Pass (manual backups) |
 | 5 | Spending caps and rate limits | Pass |
 | 6 | Dependencies | Pass |
 | 7 | Agent review: attack, then fix | Pass |
@@ -32,7 +32,7 @@ Details and evidence for each are below.
 | 1 | RLS on every table, with the test that fits the app | `supabase/schema.sql`: RLS on all 5 tables, no policies, no grants to `anon`/`authenticated`. `npm run test:security` uses the publishable key (and no key) to try to read, add, change and delete in every table and run `take_ai_slot` and `take_write_slot`. Live-site console test + screenshot: step 9. | Passed: database test Nov 17 (again Nov 19 with `write_calls`: 44/44), console test Nov 18 |
 | 2 | Secret keys stay on the server | Search the repo, all Git history and the live site's files for `sb_secret_`, `service_role`, `sk-or-`, `sk-ant-`, `sk-proj-`, `sk_live_` and `phc_` | Passed Nov 17–18; full search again Nov 19: no real secrets found |
 | 3 | Private storage, expiring links | No files are stored and there are no Supabase Storage buckets | Not applicable: confirmed Nov 18, no buckets in Supabase Storage |
-| 4 | Production out of the agent's reach; backups | Dev and prod are separate. The agent has no Supabase or Vercel keys. Backups: see below | Not fully passed: prod is out of the agent's reach, but there are no backups on the free plan |
+| 4 | Production out of the agent's reach; backups | Dev and prod are separate. The agent has no Supabase or Vercel keys. Destructive commands (any SQL, deleting data, Supabase settings, keys, pushing to `main`) are on the "Ask Me First" list in AGENTS.md. Backups: the free plan keeps none, so Julia exports them by hand | Passed Nov 19: prod is out of the agent's reach, and Julia made a manual backup of all 5 tables |
 | 5 | Spending caps and rate limits | $2 cap on the live OpenRouter key. A per-invite rate limit on every route that calls a paid API or saves data: `checkin` (AI limit + save limit), `onboarding`, `response`, `period` (save limit). Read-only routes (`context`, `config`, `health`) don't need one. | AI limit and $2 cap passed Nov 18. Save limit passed Nov 19 on the live site (`npm run test:live`, 33/33) |
 | 6 | Dependencies | `npm audit`, fix anything rated high | Passed Nov 17: 0 vulnerabilities |
 | 7 | Agent review: attack, then fix | `npm run test:live` (tests/live-check.mjs) against the live site + manual probing | Passed Nov 18 after one fix |
@@ -45,6 +45,7 @@ Details and evidence for each are below.
 - **Nov 17, SQL Editor:** all 4 tables show `rls_enabled = true`, and there are no grants to `anon`, `authenticated` or `PUBLIC`.
 - **Nov 17:** the old JWT API keys (`anon` / `service_role`) are disabled.
 - **Nov 17, backups:** Supabase's page says "Free Plan does not include project backups."
+- **Nov 19, manual backup (check 4):** Julia exported all 5 live tables (`invites`, `profiles`, `checkins`, `ai_calls`, `write_calls`) as CSV from the Supabase Table Editor. She saved them on her laptop, outside the repo and outside iCloud, so they never reach Git or a cloud sync.
 
 - **Nov 17, live site (check 2):**
   - **Served files:** none of the 7 files the site serves contains `sb_secret_`, `service_role`, `sb_publishable_`, `sk_`/`sk-or-`, an old-style JWT key, or the names `SUPABASE_`/`OPENROUTER_`. `/api/config` returns only the public PostHog key (`phc_…`) and host.
@@ -116,7 +117,7 @@ Details and evidence for each are below.
 
 ## What is left
 
-- **No automatic backups.** The Supabase free plan doesn't include them, and we're not upgrading. If the project's data were lost, testers' check-ins would be gone. This is accepted for a semester-long friend test.
+- **Backups are manual.** The Supabase free plan keeps none, so Julia exports the tables by hand. She'll take another backup before submitting and before any database change.
 - **No full sign-in.** Anyone who has a person's link can use that account. That's why links are sent privately, one per person, and can be revoked with one SQL line (as on Nov 19).
 - **The database can pause.** Supabase pauses free projects after a period of no activity. The app stops working until the project is restored from the Supabase dashboard.
 - **Tester data is temporary.** All tester data is deleted at the end of the semester (by December 31, 2026, as the privacy note says).
