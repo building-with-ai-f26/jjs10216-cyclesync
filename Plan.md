@@ -353,12 +353,14 @@ Today is Tue Nov 17. Each 🤖 step is one small commit, with `npm test` (and `n
 
 ### Where we stopped (Thu Nov 19)
 
-**Done:** steps 0–10. The app is live at https://jjs10216-cyclesync.vercel.app with Supabase. Last code commit: `966658c` (invite-link fix).
+**Done:** steps 0–11. The app is live at https://jjs10216-cyclesync.vercel.app with Supabase. Last code commit: `966658c` (invite-link fix).
 - ✅ **Step 9, live checks:** all done. The results are in SECURITY.md ("What I found", Nov 17–18). The console-test snippet is in Git history (commit `61d4b94`).
 - ✅ **Step 10, SECURITY.md:** finished. It has the summary table of all 7 class checks, the Nov 19 invite-link incident and fix, and "What is left".
 - **Friends started Nov 19:** tester-1, tester-3 and tester-4.
 
-**Next:** step 11 (AGENTS.md, with both "rules from real mistakes" from B3-9).
+- ✅ **Step 11, AGENTS.md:** added Shipping, Ask Me First, and Rules From Real Mistakes (tests never touch real data, hidden means hidden, a new invite link always wins).
+
+**Next:** step 12 (invite more friends; Product Page Build 3 log).
 
 **Housekeeping:** `data/cyclesync-db.backup-2026-11-17.json` is the backup from before the test-data cleanup in step 6. It's ignored by Git. 🙋 Delete it once you're happy that your local data is fine.
 

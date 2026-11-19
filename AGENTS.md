@@ -27,7 +27,7 @@
    - `OPENROUTER_API_KEY`: real AI. Leave it blank for the free mock coach.
    - `OPENROUTER_MODEL`: defaults to `anthropic/claude-haiku-5.5`.
    - `POSTHOG_KEY` / `POSTHOG_HOST`: analytics. Leave the key blank for none.
-4. Keys live only in `.env`, which Git ignores. Never put them in code, commits, or a chat with a coding agent.
+4. Local keys live only in `.env`, which Git ignores. Live keys live only in Vercel's settings. Never put either in code, commits, or a chat with a coding agent.
 5. `npm run dev`, then open http://localhost:3000.
 
 ## 2. Commands
@@ -47,6 +47,8 @@
   - `npm test` and `npm run test:browser` always use the mock AI and never spend money.
 - **Analytics:** set `POSTHOG_KEY` (and `POSTHOG_HOST`) in `.env` to turn on PostHog. With no key the app runs without analytics. `public/analytics.js` is the only file that talks to PostHog.
 - **AI mode:** with `OPENROUTER_API_KEY` set, the app calls OpenRouter (`OPENROUTER_MODEL`). With no key, or `AI_MODE=mock`, it uses the free mock coach (`lib/mock-ai.js`).
+- **Make an invite:** `npm run invite -- tester-N` prints a private link and one SQL `insert` line for Julia to run in Supabase (nicknames only; add `--local` for the local data file).
+- **Run the Supabase security test:** `npm run test:security` tries to read and write every table with the publishable key and passes only if every attempt is refused (needs `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `.env`).
 - **Run model evals:** `[Build 4]`
 
 ## 3. Non-Negotiable Engineering Rules
@@ -57,3 +59,28 @@
 5. **Zero secrets in code:** Never hardcode API keys, tokens, or credentials. Always read from environment variables (`.env`) and update `.env.example` when new variables are needed.
 6. **Stop when looping:** If a fix fails twice in a row, stop, summarize what failed, and ask the human before trying a third approach.
 7. **Follow the research:** Before building or changing anything in the recommendation flow, read research/evidence-brief.md and research/recommendation-spec.md and follow them. Safety rules are implemented in code and override the AI.
+
+## 4. Shipping
+- **Live site:** https://jjs10216-cyclesync.vercel.app
+- **How changes go live:** pushing to `main` deploys to Vercel automatically. A branch on its own only makes a preview link, so a change is live only after it's merged to `main`.
+- **Undo a bad deploy:** in Vercel, open an older deployment and use "Promote" to put it back live.
+- **Secret keys:** the live keys (Supabase secret key, live OpenRouter key) live only in Vercel's settings, never in `.env`, code, commits or chat.
+- **Database changes:** written as SQL for Julia to review. Julia runs it herself in Supabase → SQL Editor.
+- **Invites:** `npm run invite -- tester-N` prints a link and one `insert` line. Labels are nicknames only, never real names. Julia runs the `insert` line in the SQL Editor and sends the link privately.
+- **Supabase pause:** the free project pauses after a quiet week. If the app stops working, restore it from the Supabase dashboard.
+
+## 5. Ask Me First
+Stop and ask before any of these:
+- Anything that touches the live database or Supabase settings (any SQL, tables, grants, RLS)
+- Adding or changing environment variables, or anything involving a key
+- Deleting any data, local or live
+- Adding an npm package or another outside service
+- Changing the AI model, the AI instructions, the safety rules, or `research/` files
+- Changing what PostHog records
+- Pushing to `main` (that deploys to the live site)
+- Anything that costs money (real AI runs beyond `npm run test:ai`)
+
+## 6. Rules From Real Mistakes
+- **Tests never touch real data.** *Nov 17: a new test wrote fake invites, profiles and check-ins into the real `data/cyclesync-db.json`.* Every test that saves data sets `CYCLESYNC_DB_FILE` to a temporary file **before** importing anything from `lib/` (use `await import(...)` inside `before()`). Don't remove the check in `lib/db-local.js` that refuses the real file during tests.
+- **Hidden means hidden.** *Nov 10: the "Set today as day 1?" prompt showed on its own because a CSS `display: flex` rule overrode `hidden`.* Keep the global `[hidden] { display: none !important; }` rule in `styles.css`, show and hide things only with `hidden`, and add a browser-check step for any new prompt that should start hidden.
+- **A new invite link always replaces the old saved one.** *Nov 19: after an invite was revoked, a phone kept the old account and showed "Could not reach the server" with the new link.* A `?code=` in the URL always wins over the saved code, and a refused invite must show its own clear message, never a network error.
