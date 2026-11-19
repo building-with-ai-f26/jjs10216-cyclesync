@@ -120,15 +120,23 @@ test('PostHog settings: replay on, inputs masked, health screens blocked, no hea
   assert.equal(config.enable_recording_console_log, false);
 });
 
-test('app.js only sends the four funnel events, through analytics.js', () => {
+test('app.js only sends the four funnel events and science_opened, through analytics.js', () => {
   const names = [...appJs.matchAll(/\btrack\('([a-z_]+)'/g)].map((m) => m[1]);
-  assert.deepEqual([...new Set(names)].sort(), ['checkin_completed', 'checkin_started', 'response_tapped', 'result_shown']);
+  assert.deepEqual([...new Set(names)].sort(), ['checkin_completed', 'checkin_started', 'response_tapped', 'result_shown', 'science_opened']);
   assert.doesNotMatch(appJs, /\bposthog\s*[.?[]/, 'app.js never talks to PostHog directly');
   // The properties passed are only workout_type and response.
   for (const [, props] of appJs.matchAll(/\btrack\('[a-z_]+',\s*\{([^}]*)\}/g)) {
     const keys = [...props.matchAll(/(\w+):/g)].map((m) => m[1]);
-    for (const k of keys) assert.ok(['workout_type', 'response'].includes(k), `unexpected property ${k}`);
+    for (const k of keys) assert.ok(['workout_type', 'response', 'screen'].includes(k), `unexpected property ${k}`);
   }
+});
+
+test('science_opened carries only which screen (setup or home), nothing else', () => {
+  const { config } = loadAnalytics();
+  const out = plain(config.before_send({ event: 'science_opened', properties: { screen: 'home', energy: 2, symptoms: ['cramps'], phase: 'luteal' } }));
+  assert.deepEqual(out.properties, { screen: 'home', source: 'app' });
+  const bad = plain(config.before_send({ event: 'science_opened', properties: { screen: 'card' } }));
+  assert.deepEqual(bad.properties, { source: 'app' });
 });
 
 test('health screens, the safety screen and the card are hidden from replays (ph-no-capture)', () => {

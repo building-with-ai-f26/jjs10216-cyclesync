@@ -1,14 +1,20 @@
+/* Palette "A": sage + plum on cream (Build 3 design pass).
+   Every text/background pair below meets WCAG AA (4.5:1 for text, 3:1 for
+   the outline of something you tap). Ratios are noted next to each color. */
 :root {
-  --bg: #fafafa;
-  --card: #ffffff;
-  --text: #111827;
-  --muted: #4b5563;
-  --border: #d1d5db;
-  --accent: #1d63dc;
-  --accent-soft: #eff6ff;
-  --care: #9d174d;
-  --care-soft: #fdf2f8;
-  --error: #b91c1c;
+  --bg: #EFEAE0;          /* cream page */
+  --card: #FFFDF9;        /* cards, inputs, chips */
+  --text: #3F4F3A;        /* deep sage body text: 7.3 on cream, 8.7 on card */
+  --muted: #5C6B55;       /* secondary text: 4.75 on cream, 5.6 on card */
+  --sage: #5E7350;        /* main buttons (white text 5.2) */
+  --sage-light: #9CAF88;  /* decorative lines and accents only (2.3, not for outlines) */
+  --sage-tint: #E4EBDD;   /* KEEP tag, tips, saved messages */
+  --line: #748966;        /* outlines of chips/inputs/buttons: 3.2 on cream, 3.75 on card */
+  --plum: #6E3A5E;        /* name, headings, selected answers, REST: 7.2 on cream */
+  --plum-tint: #F3E8EE;   /* selected answers, safety box, REST card (plum text 7.2) */
+  --plum-mid: #EAD9E3;    /* SWAP tag (plum text 6.4) */
+  --terra: #7A3A1E;       /* ADJUST tag text and error text: 7.1 on cream */
+  --terra-tint: #F5E0D5;  /* ADJUST tag (terracotta text 6.7) */
 }
 
 * { box-sizing: border-box; }
@@ -21,21 +27,24 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
 }
 
 .app {
   max-width: 480px;
   margin: 0 auto;
-  padding: 20px 16px 64px;
+  /* Small top gap on phones (plus the notch area when there is one) */
+  padding: calc(12px + env(safe-area-inset-top)) 16px 48px;
 }
 
-.app-header { margin-bottom: 20px; }
-.brand { font-weight: 700; color: var(--accent); letter-spacing: -0.01em; }
+.app-header { margin-bottom: 12px; }
+.brand { font-weight: 700; color: var(--plum); letter-spacing: -0.01em; font-size: 17px; }
 
-h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.02em; }
+h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.02em; color: var(--plum); }
 .muted { color: var(--muted); margin: 0 0 20px; }
 
 /* ---------- Onboarding questions ---------- */
@@ -51,15 +60,38 @@ h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.02em
 input[type="date"],
 input[type="number"] {
   font: inherit;
-  font-size: 16px; /* 16px stops iPhone Safari from zooming in */
+  font-size: 16px; /* 16px or more stops iPhone Safari from zooming in */
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--card);
   color: var(--text);
-  min-height: 44px;
+  min-height: 48px;
 }
 input[type="number"] { width: 6em; }
+input:focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
+
+/* Date fields: iPhone shows an empty box until a date is picked, so a
+   placeholder sits on top while the field is empty (required + empty = :invalid). */
+.date-wrap { position: relative; display: inline-block; width: 100%; max-width: 260px; }
+.date-wrap input[type="date"] {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+}
+.date-placeholder {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.date-wrap input:valid + .date-placeholder,
+.date-wrap input:focus + .date-placeholder { display: none; }
+/* Hide desktop Chrome's "mm/dd/yyyy" while the placeholder is showing */
+.date-wrap input:invalid:not(:focus)::-webkit-datetime-edit { color: transparent; }
 
 /* ---------- Tap-to-choose chips (real radio buttons / checkboxes underneath) ---------- */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -74,24 +106,35 @@ input[type="number"] { width: 6em; }
 .chip span {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 44px;
   padding: 8px 16px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--card);
   user-select: none;
 }
+/* Selected: light plum tint, plum border and a checkmark (never a solid fill,
+   so the main button stays the only solid block on the screen). The extra
+   border width is a shadow, so nothing shifts when it's tapped. */
 .chip input:checked + span {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  background: var(--plum-tint);
+  border-color: var(--plum);
+  box-shadow: inset 0 0 0 1px var(--plum);
+  color: var(--plum);
+  font-weight: 600;
+}
+.chip input:checked + span::before {
+  content: "✓";
+  font-weight: 700;
+  color: var(--plum);
 }
 .chip input:focus-visible + span {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--plum);
   outline-offset: 2px;
 }
 
-/* Bigger chips for the one-question check-in */
+/* Bigger chips for the one-question check-in: checkmark on the right */
 .chips-big { flex-direction: column; gap: 10px; }
 .chips-big .chip span {
   display: flex;
@@ -101,23 +144,38 @@ input[type="number"] { width: 6em; }
   border-radius: 14px;
   font-size: 17px;
 }
+.chips-big .chip input:checked + span::before { content: none; }
+.chips-big .chip input:checked + span::after {
+  content: "✓";
+  margin-left: auto;
+  padding-left: 12px;
+  font-weight: 700;
+}
 
-/* Energy emoji scale */
+/* Energy emoji scale: checkmark in the corner */
 .emoji-scale { display: flex; gap: 8px; justify-content: space-between; }
 .chip-emoji { flex: 1; }
 .chip-emoji span {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0;
   width: 100%;
   min-height: 72px;
   padding: 8px 0;
   border-radius: 14px;
 }
+.chip-emoji input:checked + span::before {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  font-size: 12px;
+}
 .chip-emoji b { font-size: 28px; line-height: 1.1; font-weight: 400; }
 .chip-emoji small { font-size: 13px; color: var(--muted); }
-.chip-emoji input:checked + span small { color: #fff; }
+.chip-emoji input:checked + span small { color: var(--plum); }
 .scale-ends {
   display: flex;
   justify-content: space-between;
@@ -136,15 +194,17 @@ input[type="number"] { width: 6em; }
   border-radius: 12px;
   font: inherit;
   font-weight: 600;
-  background: var(--accent);
+  background: var(--sage);
   color: #fff;
   cursor: pointer;
 }
+.btn:focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
 .btn:disabled { opacity: 0.45; cursor: default; }
+/* Light secondary: cream card, sage outline */
 .btn-secondary {
   background: var(--card);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
 }
 .btn-small {
   display: inline-block;
@@ -157,72 +217,104 @@ input[type="number"] { width: 6em; }
 
 .link-btn {
   display: block;
-  margin: 20px auto 0;
-  padding: 10px;
+  min-height: 44px;
+  margin: 16px auto 0;
+  padding: 10px 14px;
   border: 0;
   background: none;
   font: inherit;
   font-size: 15px;
-  color: var(--accent);
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--sage-light);
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 .link-quiet { color: var(--muted); margin-top: 4px; }
 
 /* ---------- Check-in header: greeting + today's context ---------- */
-.context { margin: 0 0 20px; }
+.context { margin: 0 0 16px; }
 .context-line {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   margin: 0;
   font-weight: 600;
   color: var(--muted);
 }
+/* The ⓘ button: a 24px circle inside a 44px tap area */
 .info-btn {
-  width: 22px;
-  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -10px 0;
   padding: 0;
-  border: 1px solid var(--muted);
-  border-radius: 50%;
+  border: 0;
   background: none;
-  color: var(--muted);
-  font: italic 600 13px/1 Georgia, serif;
   cursor: pointer;
 }
-.estimate-note { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+.info-btn::before {
+  content: "i";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  color: var(--muted);
+  font: italic 600 13px/1 Georgia, serif;
+}
+.info-btn { font-size: 0; color: transparent; } /* the "i" text stays for screen readers via aria-label */
+.estimate-note { font-size: 14px; color: var(--muted); margin: 4px 0 0; }
 .phase-info { font-size: 15px; margin: 6px 0 0; }
-.workout-day { font-size: 15px; margin: 6px 0 0; color: var(--accent); font-weight: 600; }
+.no-phase-note { font-size: 15px; margin: 6px 0 0; color: var(--muted); }
+.workout-day {
+  display: inline-block;
+  font-size: 15px;
+  margin: 8px 0 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--sage-tint);
+  color: var(--text);
+  font-weight: 600;
+}
 
-/* ---------- Stepper: back arrow + progress dots ---------- */
+/* ---------- Stepper: progress dots (left, lined up with the text) + Back ---------- */
 .stepper {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 0 0 16px;
+  justify-content: space-between;
+  min-height: 44px;
+  margin: 0 0 8px;
 }
-.back-btn {
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  font-size: 22px;
-  color: var(--text);
-  cursor: pointer;
-}
-.back-btn:disabled { visibility: hidden; }
-.dots { display: flex; gap: 6px; flex-wrap: wrap; }
+.dots { display: flex; gap: 6px; }
 .dots span {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--border);
+  background: #D8D2C4;
 }
-.dots span.done { background: #93b4ee; }
-.dots span.on { background: var(--accent); }
+.dots span.done { background: var(--sage-light); }
+.dots span.on { background: var(--plum); width: 20px; border-radius: 4px; }
+.back-btn {
+  min-width: 44px;
+  min-height: 44px;
+  margin-right: -10px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.back-btn:disabled { visibility: hidden; }
 
 /* ---------- One question ---------- */
-.step-q { font-size: 22px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; }
+.step-q { font-size: 22px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; color: var(--plum); }
 .step-q label { font: inherit; }
 .step-sub { color: var(--muted); margin: 0 0 16px; }
 .step-q + .chips,
@@ -232,20 +324,20 @@ input[type="number"] { width: 6em; }
 
 /* ---------- "Has your period started?" (only when due or late) ---------- */
 .period-box {
-  margin: 0 0 20px;
+  margin: 0 0 16px;
   padding: 14px;
   border-radius: 14px;
-  background: var(--care-soft);
+  background: var(--plum-tint);
 }
-.period-prompt { margin: 0; font-weight: 600; color: var(--care); }
+.period-prompt { margin: 0; font-weight: 600; color: var(--plum); }
 .period-btn {
   margin: 8px 0 0;
   min-height: 44px;
   padding: 8px 14px;
-  border: 0;
+  border: 1px solid var(--plum);
   border-radius: 10px;
-  background: var(--care);
-  color: #fff;
+  background: var(--card);
+  color: var(--plum);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -258,67 +350,126 @@ input[type="number"] { width: 6em; }
   margin: 0 0 16px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--sage-tint);
+  color: var(--text);
   font-weight: 600;
 }
 
-.care { color: var(--care); }
+.care { color: var(--plum); }
 
 .safety-box {
   margin: 0 0 20px;
   padding: 16px;
   border-radius: 14px;
-  background: var(--care-soft);
+  background: var(--plum-tint);
 }
-.safety-msg { margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--care); line-height: 1.45; }
+.safety-msg { margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--plum); line-height: 1.45; }
 .safety-msg + .safety-msg { margin-top: 12px; }
 
-.footer-links { margin-top: 16px; }
-.footer-links .link-btn { margin-top: 0; }
+/* "Edit my setup" / "Update my cycle": light secondary buttons, side by side */
+.footer-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 28px;
+}
+.footer-links .btn { min-height: 44px; padding: 10px 8px; font-size: 15px; font-weight: 500; }
 
 .error {
-  color: var(--error);
+  color: var(--terra);
   font-weight: 600;
   margin: 16px 0 0;
 }
 
-/* Recommendation card */
-.result-context { margin: 0 0 10px; color: var(--muted); font-weight: 600; font-size: 15px; }
+/* Loading and "Something went wrong" / "Could not reach the server" */
+#loading { margin-top: 8px; }
+
+/* Invite-only screen */
+#invite-dead { margin: 0 0 20px; padding: 12px 14px; border-radius: 12px; background: var(--plum-tint); color: var(--plum); font-weight: 600; }
+
+/* ---------- Recommendation card ---------- */
+.result-context { margin: 0 0 8px; color: var(--muted); font-weight: 600; font-size: 15px; }
+.result-context + .no-phase-note { margin: -4px 0 10px; font-size: 14px; }
 .rec-card {
   margin: 0 0 20px;
-  padding: 18px 16px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  padding: 20px 18px;
+  border: 1px solid #DCD5C6;
+  border-radius: 18px;
   background: var(--card);
 }
-.rec-card h1 { margin: 10px 0 12px; font-size: 24px; }
+.rec-card.rec-rest { background: var(--plum-tint); border-color: #E2CFDA; }
+.rec-card h1 { margin: 12px 0 10px; font-size: 22px; line-height: 1.25; }
 .verdict {
   display: inline-block;
-  padding: 4px 12px;
+  padding: 3px 12px;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.verdict-keep { background: #dcfce7; color: #166534; }
-.verdict-adjust { background: var(--accent-soft); color: var(--accent); }
-.verdict-swap { background: #fef3c7; color: #92400e; }
-.verdict-rest { background: #ede9fe; color: #5b21b6; }
-.rec-prescription { margin: 0 0 12px; font-size: 17px; font-weight: 600; }
+.verdict-keep { background: var(--sage-tint); color: #3E5233; }     /* 7.0 */
+.verdict-adjust { background: var(--terra-tint); color: var(--terra); } /* 6.7 */
+.verdict-swap { background: var(--plum-mid); color: var(--plum); }   /* 6.4 */
+.verdict-rest { background: var(--plum); color: #fff; }               /* 8.6 */
+.rec-prescription { margin: 0 0 10px; font-size: 17px; font-weight: 600; line-height: 1.4; }
 .rec-reason { margin: 0; color: var(--muted); }
 .rec-tip {
-  margin: 12px 0 0;
+  margin: 14px 0 0;
   padding: 10px 12px;
   border-radius: 10px;
-  background: var(--bg);
+  background: var(--sage-tint);
   font-size: 15px;
 }
-.response-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-.response-buttons .btn.chosen { background: var(--accent); border-color: var(--accent); color: #fff; } /* the one she tapped is filled */
+.rec-card.rec-rest .rec-tip { background: var(--card); }
 
-/* ---------- Privacy note (footer, every screen) ---------- */
-.app-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 0.85rem; }
-.app-footer summary { cursor: pointer; color: var(--muted); }
-.privacy-body p { margin: 10px 0; line-height: 1.45; color: var(--muted); }
+/* Response buttons: one big "Do this", then the alternatives in a fixed spot.
+   "Original plan" (full width, only when the card changes the plan) sits above
+   "Something else | Rest", which are always together on the bottom row. */
+.response-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.response-buttons [data-response="do_this"],
+.response-buttons [data-response="original_plan"] { grid-column: 1 / -1; }
+.response-buttons [data-response="do_this"] { min-height: 52px; font-size: 17px; margin-bottom: 4px; }
+.response-buttons .btn-secondary { font-weight: 500; }
+/* The one she tapped: same "selected" look as the check-in answers */
+.response-buttons .btn.chosen {
+  background: var(--plum-tint);
+  border: 1px solid var(--plum);
+  box-shadow: inset 0 0 0 1px var(--plum);
+  color: var(--plum);
+  font-weight: 600;
+}
+.response-buttons .btn.chosen::before { content: "✓ "; }
+
+/* ---------- Footer panels: "About your data" and "The science behind CycleSync" ---------- */
+.app-footer { margin-top: 20px; padding-top: 4px; border-top: 1px solid var(--sage-light); font-size: 0.85rem; }
+.panel summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 15px;
+  list-style: none;
+}
+.panel summary::-webkit-details-marker { display: none; }
+/* Chevron on the right: points down when closed, up when open */
+.panel summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin: 0 6px 4px auto;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+}
+.panel[open] summary::after { transform: rotate(-135deg); margin-bottom: -4px; }
+.panel-body p { margin: 10px 0; line-height: 1.45; color: var(--muted); }
+.panel-body strong { color: var(--text); }
+.science { margin: 20px 0 0; padding-top: 4px; border-top: 1px solid var(--sage-light); font-size: 0.85rem; }
+.science-slot[data-screen="setup"] .science { margin: 0 0 20px; border-top: 0; border-bottom: 1px solid var(--sage-light); padding: 0 0 4px; }

@@ -17,11 +17,13 @@
     checkin_completed: ['workout_type'],
     result_shown: ['workout_type'],
     response_tapped: ['workout_type', 'response'],
+    science_opened: ['screen'], // not health: which screen the science panel was opened on
   };
   // The only values those properties may have.
   const ALLOWED_VALUES = {
     workout_type: ['run', 'strength', 'class', 'walk_yoga'],
     response: ['do_this', 'original_plan', 'something_else', 'rest'],
+    screen: ['setup', 'home'],
   };
   // Added by PostHog itself to every event; needed for it to be accepted.
   const POSTHOG_FIELDS = ['token', 'distinct_id'];
