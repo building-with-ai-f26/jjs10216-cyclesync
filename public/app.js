@@ -14,18 +14,20 @@ function makeId() {
 
 function getUserId() {
   try {
-    let id = localStorage.getItem('cyclesync.userId');
-    if (!id) {
-      id = makeId();
-      localStorage.setItem('cyclesync.userId', id);
-    }
-    return id;
+    return localStorage.getItem('cyclesync.userId') || newUserId();
   } catch {
     return makeId(); // Storage blocked (e.g. private browsing): works for this visit only.
   }
 }
 
-const userId = getUserId();
+// A brand-new ID, remembered in this browser. The old one's data is left as it is.
+function newUserId() {
+  const id = makeId();
+  try { localStorage.setItem('cyclesync.userId', id); } catch {}
+  return id;
+}
+
+let userId = getUserId();
 
 // ---------- Helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -66,22 +68,50 @@ function setRadio(form, name, value) {
   if (el) el.checked = true;
 }
 
-// Every API call carries her invite code (public/invite.js). If the server
-// says the code is missing or unknown, show the invite-only screen.
-async function api(path, options = {}) {
-  const res = await fetch(path, {
-    ...options,
-    headers: { 'content-type': 'application/json', 'x-invite-code': globalThis.csInvite?.get() || '' },
-  });
+// Every API call carries her invite code (public/invite.js).
+// - fetch itself fails (offline, server down) → NetworkError.
+// - no code → the invite-only screen.
+// - a dead code (revoked, unknown, malformed), or a setup made with another
+//   invite → "This link no longer works." (allowOtherInvite: start() handles
+//   the other-invite case itself.)
+async function api(path, { allowOtherInvite = false, ...options } = {}) {
+  let res;
+  try {
+    res = await fetch(path, {
+      ...options,
+      headers: { 'content-type': 'application/json', 'x-invite-code': globalThis.csInvite?.get() || '' },
+    });
+  } catch {
+    throw new NetworkError();
+  }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && data.invite === 'required') {
-    showScreen('invite');
+  if (res.status === 401 && (data.invite === 'required' || data.invite === 'invalid')) {
+    showInviteScreen(data.invite === 'invalid' || globalThis.csInvite?.badLink());
+    throw new InviteRequired();
+  }
+  if (res.status === 403 && data.invite === 'other' && !allowOtherInvite) {
+    showInviteScreen(true);
     throw new InviteRequired();
   }
   return { ok: res.ok, status: res.status, data };
 }
 
 class InviteRequired extends Error {}
+class NetworkError extends Error {}
+
+function showInviteScreen(deadLink) {
+  $('invite-need').hidden = deadLink;
+  $('invite-dead').hidden = !deadLink;
+  showScreen('invite');
+}
+
+// The message for an error caught around an API call. "Could not reach the
+// server" only when the request never got an answer.
+function problemMessage(err) {
+  return err instanceof NetworkError
+    ? 'Could not reach the server.'
+    : 'Something went wrong. Please try again.';
+}
 
 // ---------- Onboarding ----------
 const onboardingForm = $('onboarding-form');
@@ -133,8 +163,8 @@ onboardingForm.addEventListener('submit', async (event) => {
       return;
     }
     await start();
-  } catch {
-    errorBox.textContent = 'Could not reach the server. Is it running?';
+  } catch (err) {
+    errorBox.textContent = problemMessage(err);
     errorBox.hidden = false;
   } finally {
     button.disabled = false;
@@ -161,7 +191,8 @@ function greeting(hour) {
 }
 
 async function loadContext() {
-  const { ok, status, data } = await api(`/api/context?userId=${userId}&today=${todayLocal()}`);
+  const { ok, status, data } = await api(`/api/context?userId=${userId}&today=${todayLocal()}`, { allowOtherInvite: true });
+  if (status === 403 && data.invite === 'other') return 'other-invite';
   if (!ok) return status === 404 ? 'not-set-up' : 'error';
   profile = data.profile;
   cycle = data.cycle;
@@ -247,7 +278,7 @@ $('period-yes').addEventListener('click', async () => {
   try {
     await savePeriodStart(todayLocal());
   } catch (err) {
-    $('period-error').textContent = err.fromServer ? err.message : 'Could not reach the server. Is it running?';
+    $('period-error').textContent = err.fromServer ? err.message : problemMessage(err);
     $('period-error').hidden = false;
   }
 });
@@ -285,7 +316,7 @@ $('cycle-form').addEventListener('submit', async (event) => {
   } catch (err) {
     $('cycle-error').textContent = err.fromServer
       ? 'Please pick a date within the past year, not in the future.'
-      : 'Could not reach the server. Is it running?';
+      : problemMessage(err);
     $('cycle-error').hidden = false;
   } finally {
     button.disabled = false;
@@ -550,8 +581,8 @@ checkinForm.addEventListener('submit', async (event) => {
     }
     // Same event either way, so it never hints at a safety message.
     track('result_shown', { workout_type: currentWorkoutType });
-  } catch {
-    errorBox.textContent = 'Could not reach the server. Is it running?';
+  } catch (err) {
+    errorBox.textContent = problemMessage(err);
     errorBox.hidden = false;
   } finally {
     button.disabled = false;
@@ -646,8 +677,21 @@ $('result-new').addEventListener('click', () => {
 
 // ---------- Start ----------
 // Set up already? Open the check-in with today's context. Otherwise, onboarding.
+//
+// Her saved browser ID's setup belongs to a different invite (e.g. an old,
+// revoked link on this phone):
+// - she just opened a new link (?code=) → start fresh with a new browser ID
+//   and go to onboarding. The old setup stays in the database, untouched.
+// - no link this visit → "This link no longer works."
+let startedFresh = false;
 async function start() {
-  const result = await loadContext();
+  let result = await loadContext();
+  if (result === 'other-invite' && globalThis.csInvite?.fromLink() && !startedFresh) {
+    startedFresh = true;
+    userId = newUserId();
+    result = await loadContext();
+  }
+  if (result === 'other-invite') return showInviteScreen(true);
   if (result === 'not-set-up') return showScreen('onboarding');
   if (result === 'error') throw new Error('Could not load');
   renderContext();
@@ -657,5 +701,5 @@ async function start() {
 
 start().catch((err) => {
   if (err instanceof InviteRequired) return; // the invite-only screen is already showing
-  $('loading').textContent = 'Could not reach the server. Is it running?';
+  $('loading').textContent = problemMessage(err);
 });

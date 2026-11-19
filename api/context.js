@@ -9,7 +9,7 @@ import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invi
 
 export async function GET(request) {
   const invite = await inviteFor(request);
-  if (!invite) return inviteRequired();
+  if (!invite) return inviteRequired(request);
   const params = new URL(request.url).searchParams;
   const userId = params.get('userId');
   const today = params.get('today');

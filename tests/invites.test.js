@@ -69,12 +69,16 @@ test('codes are 22 URL-safe characters, random, and stored only as a hash', () =
   assert.ok(saved.includes(invites.hashInviteCode(codeA)));
 });
 
-for (const [label, code] of [['no code', undefined], ['an empty code', ''], ['a malformed code', 'abc'], ['an unknown code', 'x'.repeat(22)]]) {
-  test(`${label} → 401 "invite-only" on every data route`, async () => {
+// No code at all → "invite-only". A code that was sent but doesn't work →
+// "invalid", so the page can say "This link no longer works." (bug, Nov 19).
+for (const [label, code, kind] of [['no code', undefined, 'required'], ['an empty code', '', 'required'], ['a malformed code', 'abc', 'invalid'], ['an unknown code', 'x'.repeat(22), 'invalid']]) {
+  test(`${label} → 401 invite: "${kind}" on every data route`, async () => {
     for (const [name, call] of Object.entries(calls(code))) {
       const res = await call();
       assert.equal(res.status, 401, name);
-      assert.equal((await res.json()).invite, 'required', name);
+      const body = await res.json();
+      assert.equal(body.invite, kind, name);
+      if (kind === 'invalid') assert.equal(body.error, invites.DEAD_LINK_MESSAGE, name);
     }
   });
 }
@@ -102,7 +106,9 @@ test("another tester's code + her browser ID → 403 on every route, nothing cha
   const before = readFileSync(file, 'utf8');
   for (const [name, call] of Object.entries(calls(codeB))) {
     if (name === 'POST response') continue; // checked below with a real check-in
-    assert.equal((await call()).status, 403, name);
+    const res = await call();
+    assert.equal(res.status, 403, name);
+    assert.equal((await res.json()).invite, 'other', name); // the page starts fresh on this (public/app.js start())
   }
   assert.equal(readFileSync(file, 'utf8'), before, 'the data file is unchanged');
 
@@ -118,7 +124,9 @@ test('a revoked code → 401', async () => {
   const data = JSON.parse(readFileSync(file, 'utf8'));
   data.invites[id].revokedAt = new Date().toISOString();
   writeFileSync(file, JSON.stringify(data));
-  assert.equal((await get(api.context, { userId: userA, today }, code)).status, 401);
+  const res = await get(api.context, { userId: userA, today }, code);
+  assert.equal(res.status, 401);
+  assert.equal((await res.json()).invite, 'invalid', 'a revoked code is a dead link, not "no code"');
 });
 
 test('a local profile from before Build 3 is claimed by the first invite, then locked to it', async () => {

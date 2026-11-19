@@ -8,7 +8,7 @@ import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invi
 
 export async function GET(request) {
   const invite = await inviteFor(request);
-  if (!invite) return inviteRequired();
+  if (!invite) return inviteRequired(request);
   const userId = new URL(request.url).searchParams.get('userId');
   if (!isValidUserId(userId)) return error(400, 'Invalid user ID.');
 
@@ -20,7 +20,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   const invite = await inviteFor(request);
-  if (!invite) return inviteRequired();
+  if (!invite) return inviteRequired(request);
   const { body, problem } = await readJson(request);
   if (problem) return problem;
   if (!isValidUserId(body?.userId)) return error(400, 'Invalid user ID.');

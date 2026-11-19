@@ -528,6 +528,78 @@ try {
   await waitFor(() => isShown('screen-onboarding'));
   check('after a reload (no code in the address) she still gets in', await isShown('screen-onboarding'));
 
+  // ===== 6b. Old and new links on the same phone (bug, Nov 19) =====
+  // Her phone had a setup made with an old invite, then that invite was
+  // revoked and she got a new link. Normal Safari said "Could not reach the
+  // server"; a Private tab (empty storage) worked.
+  console.log('\n— Old and new links on the same phone —');
+  const dbFile = join(WORK, 'db.json');
+  const readDb = () => JSON.parse(readFileSync(dbFile, 'utf8'));
+  const deadShown = async () => (await isShown('screen-invite')) && (await isShown('invite-dead')) && !(await isShown('invite-need'));
+  const phone = 'dddddddd-1111-4111-8111-111111111111';
+  await makeUser(phone, { ...BASE_PROFILE, lastPeriodStart: iso(-5) }); // her setup, made with her old invite
+  const oldCode = userCodes[phone];
+  const newCode = newInvite(BASE, 'eeeeeeee-new-link'); // her new link, no setup yet
+  const oldProfile = JSON.stringify(readDb().profiles[phone]);
+
+  // No link this visit, saved code is someone else's invite → dead link.
+  await openAs(phone);
+  await cdp('Page.navigate', { url: `${BASE}/` });
+  await sleep(300);
+  await js(`localStorage.setItem('cyclesync.inviteCode', '${newCode}')`);
+  await cdp('Page.reload');
+  await waitFor(deadShown);
+  check('saved setup belongs to another invite, no link this visit → "This link no longer works"', await deadShown());
+  check('…with the exact wording', (await text('invite-dead')) === 'This link no longer works. Ask Julia for a new one.', await text('invite-dead'));
+  check('…and the browser ID is kept', (await js(`return localStorage.getItem('cyclesync.userId')`)) === phone);
+  await shot('dead-link');
+
+  // Option (b): she opens the NEW link while the phone still has the old
+  // code and the old browser ID → fresh browser ID, onboarding.
+  await js(`localStorage.setItem('cyclesync.inviteCode', '${oldCode}')`);
+  await cdp('Page.navigate', { url: `${BASE}/?code=${newCode}` });
+  await waitFor(() => isShown('screen-onboarding'));
+  check('new link on a phone set up with another invite → onboarding', await isShown('screen-onboarding'));
+  const freshId = await js(`return localStorage.getItem('cyclesync.userId')`);
+  check('…with a fresh browser ID', /^[0-9a-f-]{36}$/.test(freshId) && freshId !== phone, freshId);
+  check('…and the new code replaced the old saved one', (await js(`return localStorage.getItem('cyclesync.inviteCode')`)) === newCode);
+  check('…and the old setup is untouched in the data file', JSON.stringify(readDb().profiles[phone]) === oldProfile);
+  check('…and nothing was saved for the fresh ID yet', !readDb().profiles[freshId]);
+
+  // Revoked code saved, no link this visit → dead link (not "Could not reach").
+  const data = readDb();
+  const oldInvite = Object.values(data.invites).find((i) => i.codeHash === hashInviteCode(oldCode));
+  oldInvite.revokedAt = new Date().toISOString();
+  writeFileSync(dbFile, JSON.stringify(data));
+  await js(`localStorage.setItem('cyclesync.userId', '${phone}'); localStorage.setItem('cyclesync.inviteCode', '${oldCode}')`);
+  await cdp('Page.navigate', { url: `${BASE}/` });
+  await waitFor(deadShown);
+  check('revoked code saved, no link → "This link no longer works"', await deadShown());
+
+  // A malformed link clears the saved code and is a dead link too.
+  await cdp('Page.navigate', { url: `${BASE}/?code=${newCode}x` });
+  await waitFor(deadShown);
+  check('malformed ?code= → "This link no longer works"', await deadShown());
+  check('…and the saved code is cleared', (await js(`return localStorage.getItem('cyclesync.inviteCode')`)) === null);
+
+  // "Could not reach the server" only when the request really fails.
+  let interceptContext = (requestId) => cdp('Fetch.failRequest', { requestId, errorReason: 'InternetDisconnected' });
+  eventHandlers['Fetch.requestPaused'] = ({ requestId }) => interceptContext(requestId);
+  await cdp('Fetch.enable', { patterns: [{ urlPattern: '*/api/context*' }] });
+  await js(`localStorage.setItem('cyclesync.inviteCode', '${newCode}')`);
+  await cdp('Page.reload');
+  await waitFor(async () => (await text('loading')) !== 'Loading…');
+  check('network failure → "Could not reach the server"', (await text('loading')) === 'Could not reach the server.', await text('loading'));
+  interceptContext = (requestId) => cdp('Fetch.fulfillRequest', {
+    requestId, responseCode: 500, responseHeaders: [{ name: 'content-type', value: 'application/json' }],
+    body: Buffer.from('{"error":"boom"}').toString('base64'),
+  });
+  await cdp('Page.reload');
+  await waitFor(async () => (await text('loading')) !== 'Loading…');
+  check('server error → "Something went wrong", not "Could not reach"', (await text('loading')) === 'Something went wrong. Please try again.', await text('loading'));
+  await cdp('Fetch.disable');
+  delete eventHandlers['Fetch.requestPaused'];
+
   console.log('\n— Privacy note and security headers —');
   check('"About your data" shows under the screen, closed', (await isShown('privacy')) && !(await js(`return document.getElementById('privacy').open`)));
   await js(`document.querySelector('#privacy summary').click()`);

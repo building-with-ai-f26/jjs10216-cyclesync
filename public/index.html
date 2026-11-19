@@ -20,7 +20,9 @@
     <!-- INVITE ONLY: shown when there's no valid invite code in this browser. -->
     <section id="screen-invite" hidden>
       <h1>CycleSync is invite-only</h1>
-      <p class="muted">Please open the personal invite link Julia sent you. If it isn't working, ask her for a new one.</p>
+      <p id="invite-need" class="muted">Please open the personal invite link Julia sent you. If it isn't working, ask her for a new one.</p>
+      <!-- Shown instead when her code is revoked, unknown or malformed. -->
+      <p id="invite-dead" hidden>This link no longer works. Ask Julia for a new one.</p>
     </section>
 
     <!-- ONBOARDING (once). "ph-no-capture" hides health answers from PostHog replays and click tracking. -->
