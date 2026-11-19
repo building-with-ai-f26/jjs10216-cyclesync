@@ -8,7 +8,7 @@
 | 2 | Secret keys stay on the server | Pass |
 | 3 | Private storage, expiring links | Pass (no files are stored) |
 | 4 | Production out of the agent's reach; backups | **Not fully passed:** no backups on the free plan |
-| 5 | Spending caps and rate limits | Pass (save limit live once `build3-gaps` is merged) |
+| 5 | Spending caps and rate limits | Pass |
 | 6 | Dependencies | Pass |
 | 7 | Agent review: attack, then fix | Pass |
 
@@ -33,7 +33,7 @@ Details and evidence for each are below.
 | 2 | Secret keys stay on the server | Search the repo, all Git history and the live site's files for `sb_secret_`, `service_role`, `sk-or-`, `sk-ant-`, `sk-proj-`, `sk_live_` and `phc_` | Passed Nov 17–18; full search again Nov 19: no real secrets found |
 | 3 | Private storage, expiring links | No files are stored and there are no Supabase Storage buckets | Not applicable: confirmed Nov 18, no buckets in Supabase Storage |
 | 4 | Production out of the agent's reach; backups | Dev and prod are separate. The agent has no Supabase or Vercel keys. Backups: see below | Not fully passed: prod is out of the agent's reach, but there are no backups on the free plan |
-| 5 | Spending caps and rate limits | $2 cap on the live OpenRouter key. A per-invite rate limit on every route that calls a paid API or saves data: `checkin` (AI limit + save limit), `onboarding`, `response`, `period` (save limit). Read-only routes (`context`, `config`, `health`) don't need one. | AI limit and $2 cap passed Nov 18. Save limit added Nov 19: tests pass and the live SQL is in place; live once `build3-gaps` is merged |
+| 5 | Spending caps and rate limits | $2 cap on the live OpenRouter key. A per-invite rate limit on every route that calls a paid API or saves data: `checkin` (AI limit + save limit), `onboarding`, `response`, `period` (save limit). Read-only routes (`context`, `config`, `health`) don't need one. | AI limit and $2 cap passed Nov 18. Save limit passed Nov 19 on the live site (`npm run test:live`, 33/33) |
 | 6 | Dependencies | `npm audit`, fix anything rated high | Passed Nov 17: 0 vulnerabilities |
 | 7 | Agent review: attack, then fix | `npm run test:live` (tests/live-check.mjs) against the live site + manual probing | Passed Nov 18 after one fix |
 
@@ -102,10 +102,16 @@ Details and evidence for each are below.
   - **Live site** (`index.html`, `invite.js`, `analytics.js`, `app.js`, `styles.css`, `/api/config`, `/api/health`): 0 hits for every secret pattern (also 0 for `sb_publishable_` and `eyJ`). One `phc_`: `/api/config` returns the public PostHog key and host only.
   - Real key values were compared inside a script and never printed.
 
+- **Nov 19, `npm run test:live` after the save limit went live (checks 5 and 7): 33 of 33 passed.** It used two new test invites, `security-check-c` and `security-check-d`.
+  - **Save limit:** invite D set up its own test user, then made 30 period updates at once. Exactly 29 got through and 1 got 429 with "You've made a lot of changes just now. Try again in a few minutes."
+  - **AI limit:** 20 check-ins at once → exactly 5 got through with a recommendation card, 15 got 429 with the friendly message.
+  - **Everything else from Nov 18 still holds:** all 6 data routes closed without an invite, 10 private paths 404, no secrets in served files, security headers, invite D can't reach invite C's user, odd input refused (400 / 413).
+  - **Test invites revoked:** all four `security-check-*` invites have `revoked_at` set (Julia, Nov 19).
+
 ## What I fixed
 
 - **Request size (found by the agent's review, Nov 17).** The local server refused bodies over 100 KB, but on Vercel only Vercel's 4.5 MB platform limit applied, so a huge check-in would have been read and processed. `lib/request.js` now refuses anything over 100 KB with a 413 in every `api/` route that reads a body. A unit test covers it, and on Nov 18 the live site returned 413 for 150 KB and 2 MB requests.
-- **Rate limits covered only the AI route (found Nov 19).** Safety-screen check-ins, setup, card responses and period updates saved data with no limit. Every route that saves data now takes a write slot first (see "Which routes save data" above). The SQL was run on the live database on Nov 19. The code is on branch `build3-gaps` and goes live when it's merged.
+- **Rate limits covered only the AI route (found Nov 19).** Safety-screen check-ins, setup, card responses and period updates saved data with no limit. Every route that saves data now takes a write slot first (see "Which routes save data" above). The SQL was run on the live database on Nov 19. The code went live on Nov 19 (commit `b4aa15a`) and `npm run test:live` confirmed it.
 - **Test data in the real local file (Nov 17).** A test wrote fake rows into the local `data/cyclesync-db.json`. Only local test data was affected, never the live database. The rows were removed, the test fixed, and `lib/db-local.js` now refuses the real file while tests run.
 
 ## What is left
@@ -113,6 +119,5 @@ Details and evidence for each are below.
 - **No automatic backups.** The Supabase free plan doesn't include them, and we're not upgrading. If the project's data were lost, testers' check-ins would be gone. This is accepted for a semester-long friend test.
 - **No full sign-in.** Anyone who has a person's link can use that account. That's why links are sent privately, one per person, and can be revoked with one SQL line (as on Nov 19).
 - **The database can pause.** Supabase pauses free projects after a period of no activity. The app stops working until the project is restored from the Supabase dashboard.
-- **Save limit on the live site:** after `build3-gaps` is merged, confirm one live 429 from the save limit (for example with `npm run test:live`, after adding a save-limit case).
 - **Tester data is temporary.** All tester data is deleted at the end of the semester (by December 31, 2026, as the privacy note says).
 - **The security test can't prove it would catch a broken lock.** It shows refusals, but we can't safely loosen the lock on the live database to see a failure. The SQL Editor check (no grants to `anon`/`authenticated`) is the second piece of evidence.

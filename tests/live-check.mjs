@@ -7,9 +7,10 @@
 // Part 2 needs two TEST invites (never a friend's), passed in the environment:
 //   LIVE_INVITE_A=... LIVE_INVITE_B=... npm run test:live
 // It makes a new anonymous test user with invite A, checks that invite B
-// can't reach it, tries odd input, then fires 30 check-ins at once.
-// Cost: the 5 check-ins the rate limit lets through use the real AI
-// (about $0.001 in total). The other 25 never reach it.
+// can't reach it, tries odd input, then fires 20 check-ins at once (AI limit).
+// Invite B then sets up its own user and makes 30 period updates at once (save limit).
+// Cost: the 5 check-ins the AI limit lets through use the real AI
+// (about $0.001 in total). The other 15 never reach it.
 // Codes are never printed. Revoke both test invites afterwards (SQL printed at the end).
 
 import { randomUUID } from 'node:crypto';
