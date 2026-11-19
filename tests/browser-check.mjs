@@ -24,7 +24,7 @@ import { makeInviteCode, hashInviteCode } from '../lib/invites.js';
 
 const REPO = join(import.meta.dirname, '..');
 const WORK = mkdtempSync(join(tmpdir(), 'cyclesync-browser-'));
-const SHOTS = join(WORK, 'screenshots');
+const SHOTS = process.env.SHOTS_DIR || join(WORK, 'screenshots'); // SHOTS_DIR keeps them (design review)
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 3131;
 const PH_PORT = 3132; // second server with a fake PostHog key
@@ -141,7 +141,7 @@ async function shot(name) {
   writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(r.result.data, 'base64'));
 }
 await cdp('Page.enable');
-await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
 
 // ---------- Helpers ----------
 function iso(daysFromToday) {
@@ -250,6 +250,7 @@ try {
     (await js(`const s = document.querySelector('[data-step="crampsCheck"]'); return s.querySelector('.step-q').textContent.trim() + ' | ' + [...s.querySelectorAll('.chip span')].map((x) => x.textContent).join(' / ')`)) === `Are these cramps worse than your usual, not helped by pain relief, or coming with fever or vomiting? | Yes / No, it's my usual`);
   await tap('crampsUnusual', 'no');
   check('→ "What\'s on the plan today?"', (await visibleStep()) === 'workout', await visibleStep());
+  await shot('1b-workout');
   await tap('workoutType', 'run');
   check('Run → "How far or how long?"', (await visibleStep()) === 'runAmount', await visibleStep());
   check('Next disabled before a distance is typed', await js(`return document.querySelector('[data-step="runAmount"] [data-next]').disabled`));
@@ -468,6 +469,7 @@ try {
     await openAs(id);
     check(`context reads "${WEEKDAY} · Day 4" (no phase)`, (await text('context-text')) === `${WEEKDAY} · Day 4`, await text('context-text'));
     check('no phase line, no ⓘ icon', !(await isShown('phase-info')) && !(await isShown('info-toggle')));
+    if (contraception === 'yes') await shot('10-home-no-phase');
     await tap('crampsToday', 'no');
     await tap('workoutType', 'walk_yoga');
     await tap('energy', '3');
@@ -475,6 +477,7 @@ try {
     await tap('symptoms', 'none');
     await submit();
     check('card shows "Day 4" only (no phase)', (await text('result-context')) === 'Day 4', await text('result-context'));
+    if (contraception === 'yes') await shot('10b-card-no-phase');
     if (WEEKDAY !== 'Saturday') check('not a usual workout day → no workout-day line', !(await isShown('workout-day')));
     await makeUser(id, { ...BASE_PROFILE, contraception, lastPeriodStart: iso(-40), workoutDays: ['sat'] });
     await openAs(id);
@@ -521,6 +524,7 @@ try {
   await cdp('Page.navigate', { url: `${BASE}/?code=${CODE}` });
   await waitFor(() => isShown('screen-onboarding'));
   check('a new visitor with her invite link sees onboarding', await isShown('screen-onboarding'));
+  await shot('0-setup');
   const href = await js(`return location.href`);
   check('the code is removed from the address bar right away', href === `${BASE}/`, href);
   check('the code is saved in this browser', (await js(`return localStorage.getItem('cyclesync.inviteCode')`)) === CODE);
@@ -597,6 +601,7 @@ try {
   await cdp('Page.reload');
   await waitFor(async () => (await text('loading')) !== 'Loading…');
   check('server error → "Something went wrong", not "Could not reach"', (await text('loading')) === 'Something went wrong. Please try again.', await text('loading'));
+  await shot('11-error');
   await cdp('Fetch.disable');
   delete eventHandlers['Fetch.requestPaused'];
 
