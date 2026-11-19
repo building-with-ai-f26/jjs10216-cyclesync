@@ -234,13 +234,14 @@ $('info-toggle').addEventListener('click', () => {
 // Used by "Has your period started?" and "Update my cycle". Refreshes the
 // header (cycle day, phase) without losing check-in answers she's already given.
 async function savePeriodStart(date) {
-  const { ok, data } = await api('/api/period', {
+  const { ok, status, data } = await api('/api/period', {
     method: 'POST',
     body: JSON.stringify({ userId, date }),
   });
   if (!ok) {
     const err = new Error(data.error || 'Could not save. Please try again.');
     err.fromServer = true;
+    err.status = status;
     throw err;
   }
   if ((await loadContext()) === 'ok') {
@@ -314,8 +315,8 @@ $('cycle-form').addEventListener('submit', async (event) => {
     await savePeriodStart($('cycleStart').value);
     showScreen('checkin');
   } catch (err) {
-    $('cycle-error').textContent = err.fromServer
-      ? 'Please pick a date within the past year, not in the future.'
+    $('cycle-error').textContent = err.status === 429 ? err.message // over the save limit
+      : err.fromServer ? 'Please pick a date within the past year, not in the future.'
       : problemMessage(err);
     $('cycle-error').hidden = false;
   } finally {
@@ -651,17 +652,17 @@ $('response-buttons').addEventListener('click', async (event) => {
   for (const b of buttons) b.disabled = true;
   $('response-error').hidden = true;
   try {
-    const { ok, data } = await api('/api/response', {
+    const { ok, status, data } = await api('/api/response', {
       method: 'POST',
       body: JSON.stringify({ userId, checkinId: currentCheckinId, response: button.dataset.response }),
     });
-    if (!ok) throw new Error(data.error);
+    if (!ok) throw Object.assign(new Error(data.error), { overLimit: status === 429 });
     for (const b of buttons) b.classList.toggle('chosen', b === button);
     $('response-saved').textContent = RESPONSE_SAVED[button.dataset.response];
     $('response-saved').hidden = false;
     track('response_tapped', { workout_type: currentWorkoutType, response: button.dataset.response });
-  } catch {
-    $('response-error').textContent = 'Could not save that. Please try again.';
+  } catch (err) {
+    $('response-error').textContent = err.overLimit ? err.message : 'Could not save that. Please try again.';
     $('response-error').hidden = false;
   } finally {
     // She can change her mind: tapping another button saves the new answer.

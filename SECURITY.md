@@ -8,7 +8,7 @@
 | 2 | Secret keys stay on the server | Pass |
 | 3 | Private storage, expiring links | Pass (no files are stored) |
 | 4 | Production out of the agent's reach; backups | **Not fully passed:** no backups on the free plan |
-| 5 | Spending caps | Pass |
+| 5 | Spending caps and rate limits | Pass (save limit live once `build3-gaps` is merged) |
 | 6 | Dependencies | Pass |
 | 7 | Agent review: attack, then fix | Pass |
 
@@ -29,11 +29,11 @@ Details and evidence for each are below.
 
 | # | Class check | How | Status |
 | --- | --- | --- | --- |
-| 1 | RLS on every table, with the test that fits the app | `supabase/schema.sql`: RLS on all 4 tables, no policies, no grants to `anon`/`authenticated`. `npm run test:security` uses the publishable key (and no key) to try to read, add, change and delete in every table and run `take_ai_slot`. Live-site console test + screenshot: step 9. | Passed: database test Nov 17, console test Nov 18 |
-| 2 | Secret keys stay on the server | Search the live site's files and the Git history for `sb_secret_`, `service_role`, `sk_` and the real keys | Passed Nov 17–18 (real key values: Julia checked locally Nov 18, none found) |
+| 1 | RLS on every table, with the test that fits the app | `supabase/schema.sql`: RLS on all 5 tables, no policies, no grants to `anon`/`authenticated`. `npm run test:security` uses the publishable key (and no key) to try to read, add, change and delete in every table and run `take_ai_slot` and `take_write_slot`. Live-site console test + screenshot: step 9. | Passed: database test Nov 17 (again Nov 19 with `write_calls`: 44/44), console test Nov 18 |
+| 2 | Secret keys stay on the server | Search the repo, all Git history and the live site's files for `sb_secret_`, `service_role`, `sk-or-`, `sk-ant-`, `sk-proj-`, `sk_live_` and `phc_` | Passed Nov 17–18; full search again Nov 19: no real secrets found |
 | 3 | Private storage, expiring links | No files are stored and there are no Supabase Storage buckets | Not applicable: confirmed Nov 18, no buckets in Supabase Storage |
 | 4 | Production out of the agent's reach; backups | Dev and prod are separate. The agent has no Supabase or Vercel keys. Backups: see below | Not fully passed: prod is out of the agent's reach, but there are no backups on the free plan |
-| 5 | Spending caps | $2 cap on the live OpenRouter key + rate limit on the AI route | Passed Nov 18: rate limit live, $2 cap on the live key confirmed |
+| 5 | Spending caps and rate limits | $2 cap on the live OpenRouter key. A per-invite rate limit on every route that calls a paid API or saves data: `checkin` (AI limit + save limit), `onboarding`, `response`, `period` (save limit). Read-only routes (`context`, `config`, `health`) don't need one. | AI limit and $2 cap passed Nov 18. Save limit added Nov 19: tests pass and the live SQL is in place; live once `build3-gaps` is merged |
 | 6 | Dependencies | `npm audit`, fix anything rated high | Passed Nov 17: 0 vulnerabilities |
 | 7 | Agent review: attack, then fix | `npm run test:live` (tests/live-check.mjs) against the live site + manual probing | Passed Nov 18 after one fix |
 
@@ -81,9 +81,31 @@ Details and evidence for each are below.
     - "Could not reach the server." now appears only for real network failures.
     - Tests added: `tests/invite-link.test.js`, `tests/invites.test.js` and a new browser-check section.
 
+- **Nov 19, which routes save data (check 5):**
+
+  | Route | Saves data | Paid API | Limit |
+  | --- | --- | --- | --- |
+  | `/api/checkin` | ✅ | ✅ OpenRouter | Save limit, then the AI limit (5 per 10 min, 20 per day per invite, 300 per day overall) |
+  | `/api/onboarding` (POST) | ✅ | ❌ | Save limit |
+  | `/api/response` | ✅ | ❌ | Save limit |
+  | `/api/period` | ✅ | ❌ | Save limit |
+  | `/api/context`, `/api/config`, `/api/health` | ❌ read only | ❌ | Not needed |
+
+  - **Save limit:** 30 saves per 10 minutes and 100 per day per invite, across all four routes (`take_write_slot()` in `supabase/schema.sql`, `takeWriteSlot()` in `lib/db-local.js`). Over the limit → 429 "You've made a lot of changes just now. Try again in a few minutes." and nothing is saved.
+  - **Safety messages are never blocked.** Over the save limit, a check-in that triggers a safety rule still shows the message. It just isn't saved.
+  - **Tests:** `tests/write-limit.test.js` covers each route's 31st save (429, nothing changed), 40 saves at once (exactly 30 get through), the safety exception, per-invite counting, the 10-minute and 24-hour windows, and revoked invites. The browser check shows the save-limit message on screen.
+  - **Live database:** Julia ran the SQL in the SQL Editor ("Success"). `npm run test:security` then refused all 44 attempts. With the publishable key, `write_calls` (read, add, change, delete) and `take_write_slot` returned `401` with `42501` (permission denied).
+- **Nov 19, full key search (check 2): no real secrets found.** Searched for `sb_secret_`, `service_role`, `sk-or-`, `sk-ant-`, `sk-proj-`, `sk_live_` and `phc_`.
+  - **Repo (files in Git):** `sb_secret_` 10 hits in 6 files, all the placeholder `sb_secret_...` or the fake `sb_secret_TEST_ONLY_not_a_real_key`, plus mentions in docs. `service_role` 15 hits in 5 files: the role name in `supabase/schema.sql` grants, a comment, docs and a search pattern. `sk-or-` 4 hits in 3 files: the fake `sk-or-v1-FAKE-TEST-KEY-not-real` and search patterns. `phc_` 8 hits in 5 files: test fakes, a search pattern, and the public PostHog key in `docs/index.html` (the Product Page's analytics; the same public key the app uses). `sk-ant-`, `sk-proj-`, `sk_live_`: 0.
+  - **Files Git ignores:** only `.env` matches (the local OpenRouter key and the public PostHog key). It has no Supabase secret key.
+  - **All Git history (55 commits, all branches):** `sk-ant-`, `sk-proj-` and `sk_live_` never appear. The only key-like values ever committed are the fakes and placeholders above, the public PostHog key, and `sk-or-v1-replace-with-your-key` (template text in the first commit's `.env.example`, Nov 5). `.env` and `data/` were never committed.
+  - **Live site** (`index.html`, `invite.js`, `analytics.js`, `app.js`, `styles.css`, `/api/config`, `/api/health`): 0 hits for every secret pattern (also 0 for `sb_publishable_` and `eyJ`). One `phc_`: `/api/config` returns the public PostHog key and host only.
+  - Real key values were compared inside a script and never printed.
+
 ## What I fixed
 
 - **Request size (found by the agent's review, Nov 17).** The local server refused bodies over 100 KB, but on Vercel only Vercel's 4.5 MB platform limit applied, so a huge check-in would have been read and processed. `lib/request.js` now refuses anything over 100 KB with a 413 in every `api/` route that reads a body. A unit test covers it, and on Nov 18 the live site returned 413 for 150 KB and 2 MB requests.
+- **Rate limits covered only the AI route (found Nov 19).** Safety-screen check-ins, setup, card responses and period updates saved data with no limit. Every route that saves data now takes a write slot first (see "Which routes save data" above). The SQL was run on the live database on Nov 19. The code is on branch `build3-gaps` and goes live when it's merged.
 - **Test data in the real local file (Nov 17).** A test wrote fake rows into the local `data/cyclesync-db.json`. Only local test data was affected, never the live database. The rows were removed, the test fixed, and `lib/db-local.js` now refuses the real file while tests run.
 
 ## What is left
@@ -91,5 +113,6 @@ Details and evidence for each are below.
 - **No automatic backups.** The Supabase free plan doesn't include them, and we're not upgrading. If the project's data were lost, testers' check-ins would be gone. This is accepted for a semester-long friend test.
 - **No full sign-in.** Anyone who has a person's link can use that account. That's why links are sent privately, one per person, and can be revoked with one SQL line (as on Nov 19).
 - **The database can pause.** Supabase pauses free projects after a period of no activity. The app stops working until the project is restored from the Supabase dashboard.
+- **Save limit on the live site:** after `build3-gaps` is merged, confirm one live 429 from the save limit (for example with `npm run test:live`, after adding a save-limit case).
 - **Tester data is temporary.** All tester data is deleted at the end of the semester (by December 31, 2026, as the privacy note says).
 - **The security test can't prove it would catch a broken lock.** It shows refusals, but we can't safely loosen the lock on the live database to see a failure. The SQL Editor check (no grants to `anon`/`authenticated`) is the second piece of evidence.

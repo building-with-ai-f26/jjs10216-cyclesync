@@ -17,7 +17,7 @@ const KEY = 'sb_secret_TEST_ONLY_not_a_real_key';
 
 // ---------- A tiny in-memory PostgREST ----------
 function fakeSupabase() {
-  const tables = { invites: [], profiles: [], checkins: [], ai_calls: [] };
+  const tables = { invites: [], profiles: [], checkins: [], ai_calls: [], write_calls: [] };
   const requests = [];
   const reply = (data, status = 200) => new Response(data === null ? '' : JSON.stringify(data), { status });
 
@@ -31,6 +31,11 @@ function fakeSupabase() {
     if (path === 'rpc/take_ai_slot') {
       if (!tables.invites.some((i) => i.id === body.p_invite_id && !i.revoked_at)) return reply('invalid_invite');
       tables.ai_calls.push({ id: randomUUID(), invite_id: body.p_invite_id, created_at: new Date().toISOString() });
+      return reply('ok');
+    }
+    if (path === 'rpc/take_write_slot') {
+      if (!tables.invites.some((i) => i.id === body.p_invite_id && !i.revoked_at)) return reply('invalid_invite');
+      tables.write_calls.push({ id: randomUUID(), invite_id: body.p_invite_id, route: body.p_route, created_at: new Date().toISOString() });
       return reply('ok');
     }
     const rows = tables[path];
@@ -164,6 +169,13 @@ for (const [name, make] of Object.entries(backends)) {
     assert.equal(await db.takeAiSlot(inviteId), 'ok');
     assert.equal(await db.takeAiSlot(randomUUID()), 'invalid_invite');
   });
+
+  test(`${name}: a write slot for a known invite is "ok", for an unknown one "invalid_invite"`, async () => {
+    const { db, seedInvite } = make();
+    const inviteId = await seedInvite('tester-7', hex('e'));
+    assert.equal(await db.takeWriteSlot(inviteId, 'period'), 'ok');
+    assert.equal(await db.takeWriteSlot(randomUUID(), 'period'), 'invalid_invite');
+  });
 }
 
 // ---------- Supabase only: how the key is used ----------
@@ -174,7 +186,9 @@ test('Supabase: every request sends the secret key only in the apikey header', a
   await db.saveProfile(userId, answers, inviteId);
   await db.getProfile(userId);
   await db.takeAiSlot(inviteId);
-  assert.ok(fake.requests.length >= 4);
+  await db.takeWriteSlot(inviteId, 'checkin');
+  assert.ok(fake.requests.length >= 5);
+  assert.ok(fake.requests.some((r) => r.url.endsWith('/rest/v1/rpc/take_write_slot') && JSON.parse(r.body).p_route === 'checkin'));
   for (const r of fake.requests) {
     assert.ok(r.url.startsWith(`${URL_}/rest/v1/`));
     assert.equal(r.headers.apikey, KEY);
