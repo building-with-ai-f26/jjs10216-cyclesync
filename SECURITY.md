@@ -1,6 +1,18 @@
 # SECURITY.md — CycleSync security audit (Build 3)
 
-*Work in progress: filled in step by step during Build 3 (see `Plan.md`, B3-7). Final version after the live checks (step 9).*
+## Summary
+
+| # | Class check | Status |
+| --- | --- | --- |
+| 1 | RLS on every table | Pass |
+| 2 | Secret keys stay on the server | Pass |
+| 3 | Private storage, expiring links | Pass (no files are stored) |
+| 4 | Production out of the agent's reach; backups | **Not fully passed:** no backups on the free plan |
+| 5 | Spending caps | Pass |
+| 6 | Dependencies | Pass |
+| 7 | Agent review: attack, then fix | Pass |
+
+Details and evidence for each are below.
 
 ## My kind of app
 
@@ -20,7 +32,7 @@
 | 1 | RLS on every table, with the test that fits the app | `supabase/schema.sql`: RLS on all 4 tables, no policies, no grants to `anon`/`authenticated`. `npm run test:security` uses the publishable key (and no key) to try to read, add, change and delete in every table and run `take_ai_slot`. Live-site console test + screenshot: step 9. | Passed: database test Nov 17, console test Nov 18 |
 | 2 | Secret keys stay on the server | Search the live site's files and the Git history for `sb_secret_`, `service_role`, `sk_` and the real keys | Passed Nov 17–18 (real key values: Julia checked locally Nov 18, none found) |
 | 3 | Private storage, expiring links | No files are stored and there are no Supabase Storage buckets | Not applicable: confirmed Nov 18, no buckets in Supabase Storage |
-| 4 | Production out of the agent's reach; backups | Dev and prod are separate. The agent has no Supabase or Vercel keys. Backups: see below | Partly. No backups on the free plan. |
+| 4 | Production out of the agent's reach; backups | Dev and prod are separate. The agent has no Supabase or Vercel keys. Backups: see below | Not fully passed: prod is out of the agent's reach, but there are no backups on the free plan |
 | 5 | Spending caps | $2 cap on the live OpenRouter key + rate limit on the AI route | Passed Nov 18: rate limit live, $2 cap on the live key confirmed |
 | 6 | Dependencies | `npm audit`, fix anything rated high | Passed Nov 17: 0 vulnerabilities |
 | 7 | Agent review: attack, then fix | `npm run test:live` (tests/live-check.mjs) against the live site + manual probing | Passed Nov 18 after one fix |
@@ -58,6 +70,16 @@
   - **Test invites revoked:** `security-check-a` and `security-check-b` have `revoked_at` set (Nov 18). Julia's own invite is still active.
   - **Spending limits (check 5):** OpenRouter shows a $2 limit on the live key and $5 on the local key.
   - **Git history, all commits (check 2):** 0 OpenRouter keys and 0 commits of `.env`. The 2 matches for `sb_secret_` are the fake test key (`sb_secret_TEST_ONLY_not_a_real_key`), not a real key.
+- **Nov 19, real incident: my own invite link shared by mistake.**
+  - **What happened:** I accidentally shared my own personal invite link with a friend.
+  - **Response:** I revoked it with one SQL line and issued new invites (`julia-2` and `tester-3`). The friend's check-ins from that morning stay under the revoked invite and are excluded from results.
+  - **Follow-on bug:** my phone then showed "Could not reach the server" with the new link. It still held the old account's browser ID, whose setup belonged to the revoked invite, and the app showed that refusal as a network error.
+  - **Fixed in commit `966658c`:**
+    - A link in the URL now always replaces the saved code.
+    - A new valid link on a phone with another invite's setup starts a fresh account. The old setup is left untouched.
+    - A revoked link shows "This link no longer works. Ask Julia for a new one."
+    - "Could not reach the server." now appears only for real network failures.
+    - Tests added: `tests/invite-link.test.js`, `tests/invites.test.js` and a new browser-check section.
 
 ## What I fixed
 
@@ -66,5 +88,8 @@
 
 ## What is left
 
-- **No database backups.** The Supabase free plan has none, and we're not upgrading. If the project's data were lost, testers' check-ins would be gone. Accepted for a semester-long friend test. A manual export before inviting friends would reduce the risk.
+- **No automatic backups.** The Supabase free plan doesn't include them, and we're not upgrading. If the project's data were lost, testers' check-ins would be gone. This is accepted for a semester-long friend test.
+- **No full sign-in.** Anyone who has a person's link can use that account. That's why links are sent privately, one per person, and can be revoked with one SQL line (as on Nov 19).
+- **The database can pause.** Supabase pauses free projects after a period of no activity. The app stops working until the project is restored from the Supabase dashboard.
+- **Tester data is temporary.** All tester data is deleted at the end of the semester (by December 31, 2026, as the privacy note says).
 - **The security test can't prove it would catch a broken lock.** It shows refusals, but we can't safely loosen the lock on the live database to see a failure. The SQL Editor check (no grants to `anon`/`authenticated`) is the second piece of evidence.
