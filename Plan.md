@@ -360,7 +360,9 @@ Today is Tue Nov 17. Each 🤖 step is one small commit, with `npm test` (and `n
 
 - ✅ **Step 11, AGENTS.md:** added Shipping, Ask Me First, and Rules From Real Mistakes (tests never touch real data, hidden means hidden, a new invite link always wins).
 
-**Next:** step 12 (invite more friends; Product Page Build 3 log).
+- 🎨 **Design pass (branch `design-pass`, not merged):** palette "A" (sage + plum on cream, WCAG AA checked), "Continue" when going back to an answered question, selected answers in plum tint with ✓, date placeholder, 5 fixed progress dots, one big "Do this" with the alternatives always in the same spot, calmer card, less space at the top, the no-phase line for hormonal birth control, light secondary "Edit my setup" / "Update my cycle", "The science behind CycleSync" panel (setup + home; PostHog `science_opened` with only `screen`), 44px tap targets, home-screen icon and name. Waiting for Julia's review of the preview before merging.
+
+**Next:** review the design-pass preview → merge to `main`; step 12 (invite more friends; Product Page Build 3 log).
 
 **Housekeeping:** `data/cyclesync-db.backup-2026-11-17.json` is the backup from before the test-data cleanup in step 6. It's ignored by Git. 🙋 Delete it once you're happy that your local data is fine.
 

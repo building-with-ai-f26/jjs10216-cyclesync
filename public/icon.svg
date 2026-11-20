@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- CycleSync icon: a plum ring (the cycle) around a sage leaf, on cream.
+       Full-bleed square: iPhone and Android round the corners themselves. -->
+  <rect width="512" height="512" fill="#EFEAE0"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#6E3A5E" stroke-width="34"/>
+  <path d="M256 168 C 316 208, 316 300, 256 344 C 196 300, 196 208, 256 168 Z" fill="#5E7350"/>
+  <path d="M256 196 L256 330" stroke="#9CAF88" stroke-width="8" stroke-linecap="round"/>
+</svg>

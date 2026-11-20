@@ -24,7 +24,7 @@ import { makeInviteCode, hashInviteCode } from '../lib/invites.js';
 
 const REPO = join(import.meta.dirname, '..');
 const WORK = mkdtempSync(join(tmpdir(), 'cyclesync-browser-'));
-const SHOTS = join(WORK, 'screenshots');
+const SHOTS = process.env.SHOTS_DIR || join(WORK, 'screenshots'); // SHOTS_DIR keeps them (design review)
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 3131;
 const PH_PORT = 3132; // second server with a fake PostHog key
@@ -141,7 +141,7 @@ async function shot(name) {
   writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(r.result.data, 'base64'));
 }
 await cdp('Page.enable');
-await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
 
 // ---------- Helpers ----------
 function iso(daysFromToday) {
@@ -233,23 +233,38 @@ try {
   const hello = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   check(`greeting is "${hello}"`, (await text('greeting')) === hello, await text('greeting'));
   check(`context reads "${WEEKDAY} · Day 4 · est. menstrual"`, (await text('context-text')) === `${WEEKDAY} · Day 4 · est. menstrual`, await text('context-text'));
-  check('phase line shows; estimate note hidden until ⓘ is tapped', (await isShown('phase-info')) && !(await isShown('estimate-note')));
+  check('estimate note and phase explanation hidden until ⓘ is tapped', !(await isShown('phase-info')) && !(await isShown('estimate-note')));
   await click('info-toggle');
-  check('tapping ⓘ shows the estimate note', await isShown('estimate-note'));
+  check('tapping ⓘ shows the estimate note and the phase explanation', (await isShown('estimate-note')) && (await isShown('phase-info')));
+  await shot('1a-info-open');
+  await click('info-toggle');
+  check('tapping ⓘ again hides them', !(await isShown('estimate-note')) && !(await isShown('phase-info')));
   check('usual-workout-day line shows', (await text('workout-day')) === `${WEEKDAY} is one of your usual workout days.`, await text('workout-day'));
   check('during her period: NO "has your period started" prompt', !(await isShown('period-box')));
   check('"Set today as day 1?" never shows on its own', !(await isShown('period-confirm')));
   check('"Edit my setup" and "Update my cycle" links show', (await isShown('edit-setup')) && (await isShown('update-cycle')));
   check('back arrow disabled on the first question', await js(`return document.getElementById('step-back').disabled`));
+  check('5 progress dots on the first question (cramps day)', (await js(`return document.querySelectorAll('#dots span').length`)) === 5);
+  check('progress dots line up with the text (same left edge as the heading)',
+    await js(`return Math.abs(document.getElementById('dots').getBoundingClientRect().left - document.getElementById('greeting').getBoundingClientRect().left) < 1`));
+  check('"Continue" hidden on a question not answered yet', !(await isShown('step-continue')));
+  check('science panel on the home screen, closed', await js(`const d = document.querySelector('.science-slot[data-screen="home"] details'); return !!d && !d.open && d.offsetParent !== null`));
+  // Tap targets ≥ 44px and form text ≥ 16px (iPhone Safari zooms in below 16px)
+  const small = await js(`return [...document.querySelectorAll('#screen-checkin button, #screen-checkin .chip span, #screen-checkin input[type=number], summary')]
+    .filter((el) => el.offsetParent !== null && el.getBoundingClientRect().height < 44).map((el) => el.id || el.textContent.trim().slice(0, 20)).join(', ')`);
+  check('every visible tap target on the home screen is at least 44px tall', small === '', small);
   await shot('1-open-day4');
 
   check('first question: "Any cramps today?"', (await visibleStep()) === 'crampsFirst', await visibleStep());
   await tap('crampsToday', 'yes');
+  check('after the first answer: "Edit my setup" and "Update my cycle" are hidden', !(await isShown('edit-setup')) && !(await isShown('update-cycle')));
+  check('after the first answer: the science panel is hidden', !(await isShown('home-science')));
   check('"Yes" → asks if the cramps are unusual', (await visibleStep()) === 'crampsCheck', await visibleStep());
   check('it asks the new cramps question with "Yes" / "No, it\'s my usual"',
     (await js(`const s = document.querySelector('[data-step="crampsCheck"]'); return s.querySelector('.step-q').textContent.trim() + ' | ' + [...s.querySelectorAll('.chip span')].map((x) => x.textContent).join(' / ')`)) === `Are these cramps worse than your usual, not helped by pain relief, or coming with fever or vomiting? | Yes / No, it's my usual`);
   await tap('crampsUnusual', 'no');
   check('→ "What\'s on the plan today?"', (await visibleStep()) === 'workout', await visibleStep());
+  await shot('1b-workout');
   await tap('workoutType', 'run');
   check('Run → "How far or how long?"', (await visibleStep()) === 'runAmount', await visibleStep());
   check('Next disabled before a distance is typed', await js(`return document.querySelector('[data-step="runAmount"] [data-next]').disabled`));
@@ -258,6 +273,13 @@ try {
   check('5 + miles → "What kind of run?"', (await visibleStep()) === 'runKind', await visibleStep());
   await tap('runKind', 'tempo');
   check('→ energy', (await visibleStep()) === 'energy', await visibleStep());
+  check('5 dots, second one on (run follow-ups share the Workout dot)',
+    JSON.stringify(await js(`return [document.querySelectorAll('#dots span').length, [...document.querySelectorAll('#dots span')].findIndex((d) => d.className === 'on')]`)) === '[5,1]');
+  await click('step-back');
+  check('back to an answered tap-to-answer question → "Continue" shows', (await visibleStep()) === 'runKind' && (await isShown('step-continue')));
+  await shot('2b-back-continue');
+  await click('step-continue');
+  check('"Continue" → next question, answer kept', (await visibleStep()) === 'energy' && (await isChecked('runKind', 'tempo')), await visibleStep());
   await shot('2-energy');
   await tap('energy', '2');
   check('→ sleep', (await visibleStep()) === 'sleep', await visibleStep());
@@ -285,7 +307,7 @@ try {
   check('safety answers with "None of these": all four = no',
     JSON.stringify(await js(`return readCheckin().heavyFlow`)) === JSON.stringify({ soakingHourly: false, over7Days: false, largeClots: false, dizzyOrBreathless: false }));
   const dots = await js(`return { total: document.querySelectorAll('#dots span').length, on: [...document.querySelectorAll('#dots span')].findIndex((d) => d.className === 'on') }`);
-  check('worst-day check-in is now 10 questions, on the last', dots.total === 10 && dots.on === 9, JSON.stringify(dots));
+  check('worst-day check-in (10 questions) still shows 5 dots, on the last', dots.total === 5 && dots.on === 4, JSON.stringify(dots));
   await click('step-back');
   check('back arrow → heavy-flow screen, answer kept', (await visibleStep()) === 'heavyFlow' && (await isChecked('heavyFlowSigns', 'none')));
   await tap('heavyFlowSigns', 'soakingHourly');
@@ -308,6 +330,7 @@ try {
   console.log('\n— Update my cycle —');
   await click('safety-back');
   check('back to a fresh check-in', (await visibleStep()) === 'crampsFirst', await visibleStep());
+  check('fresh check-in: "Edit my setup", "Update my cycle" and the science panel show again', (await isShown('edit-setup')) && (await isShown('update-cycle')) && (await isShown('home-science')));
   await click('update-cycle');
   check('"Update my cycle" opens its screen', await isShown('screen-cycle'));
   const summary = await text('cycle-summary');
@@ -324,6 +347,7 @@ try {
   check(`correcting the date → "${WEEKDAY} · Day 6 · est. follicular"`, (await text('context-text')) === `${WEEKDAY} · Day 6 · est. follicular`, await text('context-text'));
   check('confirmation: "Saved. Today is day 6."', (await text('cycle-message')) === 'Saved. Today is day 6.', await text('cycle-message'));
   check('not a period day any more → starts with the workout question', (await visibleStep()) === 'workout', await visibleStep());
+  check('"Update my cycle" still shows after saving a date', await isShown('update-cycle'));
   await click('update-cycle');
   await click('cycle-today');
   check('"Today" fills in today\'s date', (await js(`return document.getElementById('cycleStart').value`)) === iso(0));
@@ -382,7 +406,11 @@ try {
   check('no tip → tip box hidden', !(await isShown('result-tip')));
   const visibleButtons = () => js(`return [...document.querySelectorAll('#response-buttons button')].filter((b) => !b.hidden).map((b) => b.textContent).join(' / ')`);
   check('KEEP card: "Original plan" is hidden (the plan IS the recommendation)', (await visibleButtons()) === 'Do this / Something else / Rest', await visibleButtons());
-  check('no button is filled before she taps one', await js(`return [...document.querySelectorAll('#response-buttons button')].every((b) => !b.classList.contains('chosen') && b.classList.contains('btn-secondary'))`));
+  check('no button is marked chosen before she taps one', await js(`return [...document.querySelectorAll('#response-buttons button')].every((b) => !b.classList.contains('chosen'))`));
+  check('"Do this" is the one solid main button; the others are light', await js(`const bs = [...document.querySelectorAll('#response-buttons button')]; return !bs[0].classList.contains('btn-secondary') && bs.slice(1).every((b) => b.classList.contains('btn-secondary'))`));
+  const rows = () => js(`return [...document.querySelectorAll('#response-buttons button')].filter((b) => !b.hidden).map((b) => Math.round(b.getBoundingClientRect().top))`);
+  const keepRows = await rows();
+  check('KEEP card: "Do this" on its own row, "Something else" + "Rest" side by side (no lone button)', keepRows.length === 3 && keepRows[0] < keepRows[1] && keepRows[1] === keepRows[2], JSON.stringify(keepRows));
   check('card and response buttons are hidden from PostHog (ph-no-capture)', await js(`return ['result-context', 'result-headline', 'response-buttons'].every((id) => document.getElementById(id).closest('.ph-no-capture'))`));
   check('"Start a new check-in" is outside ph-no-capture, so its clicks are tracked', await js(`return !document.getElementById('result-new').closest('.ph-no-capture')`));
   await shot('7-card-great-day');
@@ -395,11 +423,11 @@ try {
   await respond('do_this');
   check('"Do this" → "Saved: doing this. Have a good one!"', (await text('response-saved')) === 'Saved: doing this. Have a good one!', await text('response-saved'));
   check('response saved on the same check-in ID', savedCheckin(id).response === 'do_this');
-  const filled = () => js(`return [...document.querySelectorAll('#response-buttons button')].filter((b) => getComputedStyle(b).backgroundColor === 'rgb(29, 99, 220)').map((b) => b.textContent).join(',')`);
-  check('the tapped button ("Do this") is the filled one', (await filled()) === 'Do this', await filled());
+  const filled = () => js(`return [...document.querySelectorAll('#response-buttons button')].filter((b) => b.classList.contains('chosen') && getComputedStyle(b).backgroundColor === 'rgb(243, 232, 238)').map((b) => b.textContent).join(',')`);
+  check('the tapped button ("Do this") is marked chosen (plum tint + ✓)', (await filled()) === 'Do this', await filled());
   await respond('rest');
   check('changing to "Rest" updates it', savedCheckin(id).response === 'rest' && (await text('response-saved')) === 'Saved: resting today. Enjoy it.');
-  check('now "Rest" is the filled one', (await filled()) === 'Rest', await filled());
+  check('now "Rest" is the chosen one', (await filled()) === 'Rest', await filled());
 
   console.log('\n— Low-energy day: tempo run, energy 2, poor sleep —');
   await click('result-new');
@@ -414,8 +442,11 @@ try {
   await submit();
   check('verdict "Adjust"', (await text('result-verdict')) === 'Adjust', await text('result-verdict'));
   check('headline "Easy 3 miles instead of your 5-mile tempo run"', (await text('result-headline')) === 'Easy 3 miles instead of your 5-mile tempo run', await text('result-headline'));
+  check('"5-mile" can\'t break across lines', (await js(`return [...document.querySelectorAll('#result-headline .nowrap')].map((s) => s.textContent).join(',')`)) === '5-mile');
   check('a tip shows', await isShown('result-tip'));
   check('ADJUST card: all four buttons, including "Original plan"', (await visibleButtons()) === 'Do this / Original plan / Something else / Rest', await visibleButtons());
+  const adjRows = await rows();
+  check('ADJUST card: "Do this", then "Original plan", then "Something else" + "Rest" on the same bottom row', adjRows[0] < adjRows[1] && adjRows[1] < adjRows[2] && adjRows[2] === adjRows[3], JSON.stringify(adjRows));
   await shot('8-card-low-energy');
 
   console.log('\n— Cramps, "No, it\'s my usual" passes through —');
@@ -468,6 +499,8 @@ try {
     await openAs(id);
     check(`context reads "${WEEKDAY} · Day 4" (no phase)`, (await text('context-text')) === `${WEEKDAY} · Day 4`, await text('context-text'));
     check('no phase line, no ⓘ icon', !(await isShown('phase-info')) && !(await isShown('info-toggle')));
+    check('one line explains why no phase is shown', (await isShown('no-phase-note')) && (await text('no-phase-note')) === 'No phase is shown when you use hormonal birth control or prefer not to say. How you feel still guides your plan.');
+    if (contraception === 'yes') await shot('10-home-no-phase');
     await tap('crampsToday', 'no');
     await tap('workoutType', 'walk_yoga');
     await tap('energy', '3');
@@ -475,6 +508,8 @@ try {
     await tap('symptoms', 'none');
     await submit();
     check('card shows "Day 4" only (no phase)', (await text('result-context')) === 'Day 4', await text('result-context'));
+    check('…with the same one-line explanation', await isShown('result-no-phase'));
+    if (contraception === 'yes') await shot('10b-card-no-phase');
     if (WEEKDAY !== 'Saturday') check('not a usual workout day → no workout-day line', !(await isShown('workout-day')));
     await makeUser(id, { ...BASE_PROFILE, contraception, lastPeriodStart: iso(-40), workoutDays: ['sat'] });
     await openAs(id);
@@ -529,6 +564,19 @@ try {
   await cdp('Page.navigate', { url: `${BASE}/?code=${CODE}` });
   await waitFor(() => isShown('screen-onboarding'));
   check('a new visitor with her invite link sees onboarding', await isShown('screen-onboarding'));
+  check('setup says "Your answers stay private."', await js(`return document.querySelector('#screen-onboarding .muted').textContent.includes('Your answers stay private.')`));
+  await shot('0-setup');
+  check('setup: empty date field shows "Tap to pick a date"', await js(`const p = document.querySelector('#screen-onboarding .date-placeholder'); return p.textContent === 'Tap to pick a date' && getComputedStyle(p).display !== 'none'`));
+  check('setup: science panel shows, closed', await js(`const d = document.querySelector('.science-slot[data-screen="setup"] details'); return !!d && !d.open && d.offsetParent !== null`));
+  const smallText = await js(`return [...document.querySelectorAll('input[type=date], input[type=number]')].filter((i) => parseFloat(getComputedStyle(i).fontSize) < 16).map((i) => i.id || i.name).join(', ')`);
+  check('every form field uses 16px+ text (no iPhone zoom)', smallText === '', smallText);
+  await js(`document.querySelector('.science-slot[data-screen="setup"] summary').click()`);
+  check('tapping it opens the four points', (await js(`return document.querySelectorAll('.science-slot[data-screen="setup"] details[open] .panel-body p').length`)) === 4);
+  await shot('0b-setup-science');
+  await js(`document.querySelector('.science-slot[data-screen="setup"] summary').click()`);
+  await js(`const i = document.getElementById('lastPeriodStart'); i.value = '2026-11-01'; i.dispatchEvent(new Event('input', { bubbles: true }))`);
+  check('placeholder hides once a date is picked', await js(`return getComputedStyle(document.querySelector('#screen-onboarding .date-placeholder')).display === 'none'`));
+  await js(`document.getElementById('lastPeriodStart').value = ''`);
   const href = await js(`return location.href`);
   check('the code is removed from the address bar right away', href === `${BASE}/`, href);
   check('the code is saved in this browser', (await js(`return localStorage.getItem('cyclesync.inviteCode')`)) === CODE);
@@ -605,6 +653,7 @@ try {
   await cdp('Page.reload');
   await waitFor(async () => (await text('loading')) !== 'Loading…');
   check('server error → "Something went wrong", not "Could not reach"', (await text('loading')) === 'Something went wrong. Please try again.', await text('loading'));
+  await shot('11-error');
   await cdp('Fetch.disable');
   delete eventHandlers['Fetch.requestPaused'];
 
@@ -617,6 +666,11 @@ try {
     ['collected', 'OpenRouter', 'PostHog', 'Supabase', 'December 31, 2026', 'not medical advice'].every((w) => privacy.includes(w)), privacy.slice(0, 80));
   await shot('privacy-note');
   await js(`document.querySelector('#privacy summary').click()`);
+  const manifest = await fetch(`${BASE}/manifest.json`).then((r) => r.json());
+  const touchIcon = await fetch(`${BASE}/apple-touch-icon.png`);
+  check('home-screen name is "CycleSync" (manifest + iPhone title) and the icon is served',
+    manifest.name === 'CycleSync' && manifest.short_name === 'CycleSync' && touchIcon.ok && touchIcon.headers.get('content-type') === 'image/png'
+      && (await js(`return document.querySelector('meta[name="apple-mobile-web-app-title"]').content`)) === 'CycleSync');
   const headers = await fetch(`${BASE}/`).then((r) => Object.fromEntries(r.headers));
   check('security headers from vercel.json are sent (CSP, no-referrer, nosniff, no framing)',
     headers['content-security-policy']?.includes("default-src 'self'") && headers['referrer-policy'] === 'no-referrer' && headers['x-content-type-options'] === 'nosniff' && headers['x-frame-options'] === 'DENY',
@@ -682,6 +736,9 @@ try {
     .filter((id) => !document.getElementById(id).closest('.ph-no-capture')).join(', ')`);
   check('every health screen, the safety screen and the card are inside ph-no-capture', healthOutside === '', healthOutside);
 
+  await js(`document.querySelector('.science-slot[data-screen="home"] summary').click()`);
+  await sleep(100);
+
   await click('update-cycle');
   await click('cycle-cancel');
   // A normal check-in with cramps ("my usual"), then a response
@@ -719,6 +776,7 @@ try {
   const sentSummary = sent.map((e) => `${e.event} ${JSON.stringify(own(e))}`);
   const expected = [
     '$pageview {"source":"app"}',
+    'science_opened {"source":"app","screen":"home"}',
     '$autocapture {"source":"app","$el_text":"Update my cycle"}',
     'checkin_started {"source":"app"}',
     'checkin_completed {"source":"app","workout_type":"run"}',
@@ -731,7 +789,7 @@ try {
   ];
   check('exactly the funnel events, in order, with only workout_type / response', JSON.stringify(sentSummary) === JSON.stringify(expected), "\n    " + sentSummary.join('\n    '));
   check('every event has source: "app"', sent.length > 0 && sent.every((e) => e.properties.source === 'app'));
-  check('result_shown looks the same for the card and the safety screen', sentSummary[4].replace('run', 'X') === sentSummary[9].replace('strength', 'X'));
+  check('result_shown looks the same for the card and the safety screen', sentSummary[5].replace('run', 'X') === sentSummary[10].replace('strength', 'X'));
   const all = JSON.stringify(sent);
   const leaks = ['cramps', 'heavy_flow', 'soakingHourly', 'a_lot', 'poor', 'tempo', 'lower', 'heavy"', 'menstrual', 'follicular', 'luteal', 'ADJUST', 'SWAP', 'KEEP', 'REST', '"energy', 'Day ', 'cycleDay', 'phase', 'verdict', 'safety', cardText.trim().slice(0, 25), safetyText.slice(0, 25)]
     .filter((w) => w && all.includes(w));

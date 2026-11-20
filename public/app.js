@@ -199,6 +199,10 @@ async function loadContext() {
   return 'ok';
 }
 
+function usesHormonal() {
+  return profile?.contraception === 'yes' || profile?.contraception === 'prefer_not_to_say';
+}
+
 function renderContext() {
   const now = new Date();
   $('greeting').textContent = greeting(now.getHours());
@@ -214,8 +218,12 @@ function renderContext() {
   $('info-toggle').setAttribute('aria-expanded', 'false');
   $('estimate-note').hidden = true;
   $('estimate-note').textContent = cycle.estimateNote ?? '';
-  $('phase-info').hidden = !cycle.phaseInfo;
+  // The estimate note and the phase explanation stay behind the ⓘ until tapped.
+  $('phase-info').hidden = true;
   $('phase-info').textContent = cycle.phaseInfo ?? '';
+  // With hormonal birth control (or "prefer not to say") no phase is shown,
+  // so one line says why and it doesn't look broken.
+  $('no-phase-note').hidden = !usesHormonal();
 
   const usualDay = profile.workoutDays.includes(WEEKDAY_KEYS[now.getDay()]);
   $('workout-day').hidden = !usualDay;
@@ -227,6 +235,7 @@ function renderContext() {
 $('info-toggle').addEventListener('click', () => {
   const open = $('estimate-note').hidden;
   $('estimate-note').hidden = !open;
+  $('phase-info').hidden = !open || !cycle.phaseInfo;
   $('info-toggle').setAttribute('aria-expanded', String(open));
 });
 
@@ -327,6 +336,9 @@ $('cycle-form').addEventListener('submit', async (event) => {
 // ---------- Morning check-in: one question at a time ----------
 const checkinForm = $('checkin-form');
 let currentStep = null;
+// Progress dots: Workout · Energy · Sleep · Symptoms · Soreness.
+const SECTION_OF = { crampsFirst: 0, workout: 0, energy: 1, sleep: 2, symptoms: 3, soreness: 4 };
+const SECTION_COUNT = 5;
 let advanceTimer = null;
 let checkinStarted = false; // has checkin_started been sent for this check-in?
 
@@ -393,15 +405,29 @@ function renderStep() {
     el.hidden = el.dataset.step !== currentStep;
   }
 
+  // Five dots, always: one per section. Follow-up questions (cramps, run
+  // details, heavy flow...) light the same dot as the question before them,
+  // so the count never jumps between 5 and 10.
+  let section = 0;
+  for (const step of steps.slice(0, index + 1)) section = SECTION_OF[step] ?? section;
   $('dots').replaceChildren(
-    ...steps.map((_, i) => {
+    ...Array.from({ length: SECTION_COUNT }, (_, i) => {
       const dot = document.createElement('span');
-      if (i < index) dot.className = 'done';
-      if (i === index) dot.className = 'on';
+      if (i < section) dot.className = 'done';
+      if (i === section) dot.className = 'on';
       return dot;
     }),
   );
   $('step-back').disabled = index === 0;
+  // "Edit my setup", "Update my cycle" and the science panel only before the check-in starts.
+  $('home-links').hidden = checkinStarted || index !== 0;
+  $('home-science').hidden = $('home-links').hidden;
+
+  // Coming back to a tap-to-answer question she already answered: show
+  // "Continue" so she isn't stuck. (Steps with their own Next button don't need it.)
+  const stepEl = checkinForm.querySelector(`.step[data-step="${currentStep}"]`);
+  const hasOwnButton = !!stepEl.querySelector('[data-next], [type="submit"]');
+  $('step-continue').hidden = hasOwnButton || !isAnswered(currentStep);
 
   // "Next" buttons (run distance, symptoms) only work once answered.
   for (const btn of checkinForm.querySelectorAll('[data-next]')) {
@@ -435,6 +461,7 @@ function resetCheckin() {
 }
 
 $('step-back').addEventListener('click', goBack);
+$('step-continue').addEventListener('click', goNext);
 for (const btn of checkinForm.querySelectorAll('[data-next]')) btn.addEventListener('click', goNext);
 
 // Keep "Any cramps today?" and the symptom list in step with each other,
@@ -445,6 +472,8 @@ checkinForm.addEventListener('change', (event) => {
   // Her first answer in this check-in.
   if (!checkinStarted) {
     checkinStarted = true;
+    $('home-links').hidden = true;
+    $('home-science').hidden = true;
     track('checkin_started');
   }
 
@@ -619,17 +648,30 @@ const RESPONSE_SAVED = {
 let currentCheckinId = null;
 let currentWorkoutType = null; // run / strength / class / walk_yoga, for analytics
 
+// Put text in an element, keeping hyphenated words ("5-mile") on one line.
+function setNoBreakHyphens(el, text) {
+  el.replaceChildren(...text.split(/(\S+-\S+)/).filter(Boolean).map((part) => {
+    if (!/\S-\S/.test(part)) return document.createTextNode(part);
+    const span = document.createElement('span');
+    span.className = 'nowrap';
+    span.textContent = part;
+    return span;
+  }));
+}
+
 // Fills the card from the server's answer. Text only (textContent, never HTML).
 // If the AI's answer failed the checks twice, the server sends the safe
 // fallback: no verdict, just the message as the headline.
 function showResult({ checkinId, recommendation: rec, cycle: c }) {
   currentCheckinId = checkinId;
   $('result-context').textContent = c.phase ? `Day ${c.cycleDay} · est. ${c.phase}` : `Day ${c.cycleDay}`;
+  $('result-no-phase').hidden = !usesHormonal();
+  document.querySelector('.rec-card').classList.toggle('rec-rest', rec.verdict === 'REST');
   const verdict = $('result-verdict');
   verdict.hidden = !rec.verdict;
   verdict.textContent = VERDICT_LABELS[rec.verdict] ?? '';
   verdict.className = `verdict verdict-${(rec.verdict ?? '').toLowerCase()}`;
-  $('result-headline').textContent = rec.headline;
+  setNoBreakHyphens($('result-headline'), rec.headline);
   for (const [id, value] of [['result-prescription', rec.prescription], ['result-reason', rec.reason], ['result-tip', rec.extra_tip]]) {
     $(id).textContent = value ?? '';
     $(id).hidden = !value;
@@ -675,6 +717,17 @@ $('result-new').addEventListener('click', () => {
   resetCheckin();
   showScreen('checkin');
 });
+
+// ---------- "The science behind CycleSync" (setup and home screens) ----------
+// One copy in <template>, placed in each slot. Opening it sends one
+// non-health event: which screen it was opened on.
+for (const slot of document.querySelectorAll('.science-slot')) {
+  const panel = $('science-template').content.firstElementChild.cloneNode(true);
+  panel.addEventListener('toggle', () => {
+    if (panel.open) track('science_opened', { screen: slot.dataset.screen });
+  });
+  slot.append(panel);
+}
 
 // ---------- Start ----------
 // Set up already? Open the check-in with today's context. Otherwise, onboarding.

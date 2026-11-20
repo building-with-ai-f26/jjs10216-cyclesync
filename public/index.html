@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CycleSync</title>
+  <!-- Home-screen name and icon (iPhone "Add to Home Screen" and Android) -->
+  <meta name="apple-mobile-web-app-title" content="CycleSync" />
+  <meta name="application-name" content="CycleSync" />
+  <meta name="theme-color" content="#EFEAE0" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <meta name="referrer" content="no-referrer" />
   <!-- First: takes the invite code out of the address bar before PostHog loads. -->
   <script src="invite.js"></script>
@@ -28,12 +35,16 @@
     <!-- ONBOARDING (once). "ph-no-capture" hides health answers from PostHog replays and click tracking. -->
     <section id="screen-onboarding" hidden>
       <h1>Let's set you up</h1>
-      <p class="muted">A few questions, once. Your answers stay anonymous.</p>
+      <p class="muted">A few questions, once. Your answers stay private.</p>
+      <div class="science-slot" data-screen="setup"></div>
 
       <form id="onboarding-form" class="ph-no-capture" novalidate>
         <div class="field">
           <label for="lastPeriodStart" class="q">When did your last period start?</label>
-          <input type="date" id="lastPeriodStart" name="lastPeriodStart" required />
+          <div class="date-wrap">
+            <input type="date" id="lastPeriodStart" name="lastPeriodStart" required />
+            <span class="date-placeholder" aria-hidden="true">Tap to pick a date</span>
+          </div>
         </div>
 
         <div class="field">
@@ -110,6 +121,7 @@
         </p>
         <p id="estimate-note" class="estimate-note" hidden></p>
         <p id="phase-info" class="phase-info" hidden></p>
+        <p id="no-phase-note" class="no-phase-note" hidden>No phase is shown when you use hormonal birth control or prefer not to say. How you feel still guides your plan.</p>
         <p id="workout-day" class="workout-day" hidden></p>
       </div>
 
@@ -132,8 +144,8 @@
       </div>
 
       <div class="stepper">
-        <button type="button" id="step-back" class="back-btn" aria-label="Back">←</button>
         <div id="dots" class="dots" aria-hidden="true"></div>
+        <button type="button" id="step-back" class="back-btn">← Back</button>
       </div>
 
       <form id="checkin-form" class="ph-no-capture" novalidate>
@@ -279,13 +291,19 @@
           <button type="submit" class="btn next-btn">Get my recommendation</button>
         </div>
 
+        <!-- Shown when she comes back to a tap-to-answer question she already
+             answered, so she isn't stuck (tapping again also moves on). -->
+        <button type="button" id="step-continue" class="btn next-btn" hidden>Continue</button>
+
         <p id="checkin-error" class="error" role="alert" hidden></p>
       </form>
 
-      <div class="footer-links">
-        <button type="button" id="edit-setup" class="link-btn link-quiet">Edit my setup</button>
-        <button type="button" id="update-cycle" class="link-btn link-quiet">Update my cycle</button>
+      <!-- These links and the science panel below: only on the home screen, before her first answer -->
+      <div id="home-links" class="footer-links">
+        <button type="button" id="edit-setup" class="btn btn-secondary">Edit my setup</button>
+        <button type="button" id="update-cycle" class="btn btn-secondary">Update my cycle</button>
       </div>
+      <div id="home-science" class="science-slot" data-screen="home"></div>
     </section>
 
     <!-- UPDATE MY CYCLE: log an early period, or correct the last start date -->
@@ -297,7 +315,10 @@
           <label for="cycleStart" class="q">When did your most recent period start?</label>
           <p class="hint">Log a period that came early, or fix a date you entered wrong.</p>
           <div class="inline">
-            <input type="date" id="cycleStart" name="cycleStart" required />
+            <div class="date-wrap">
+              <input type="date" id="cycleStart" name="cycleStart" required />
+              <span class="date-placeholder" aria-hidden="true">Tap to pick a date</span>
+            </div>
             <button type="button" id="cycle-today" class="btn btn-secondary btn-small">Today</button>
           </div>
         </div>
@@ -322,6 +343,7 @@
     <section id="screen-result" hidden>
       <div id="result-body" class="ph-no-capture">
         <p id="result-context" class="result-context"></p>
+        <p id="result-no-phase" class="no-phase-note" hidden>No phase is shown when you use hormonal birth control or prefer not to say. How you feel still guides your plan.</p>
         <div class="rec-card">
           <span id="result-verdict" class="verdict"></span>
           <h1 id="result-headline"></h1>
@@ -330,7 +352,7 @@
           <p id="result-tip" class="rec-tip" hidden></p>
         </div>
         <div id="response-buttons" class="response-buttons">
-          <button type="button" class="btn btn-secondary" data-response="do_this">Do this</button>
+          <button type="button" class="btn" data-response="do_this">Do this</button>
           <button type="button" class="btn btn-secondary" data-response="original_plan">Original plan</button>
           <button type="button" class="btn btn-secondary" data-response="something_else">Something else</button>
           <button type="button" class="btn btn-secondary" data-response="rest">Rest</button>
@@ -343,9 +365,9 @@
 
     <!-- PRIVACY NOTE (Plan.md B3-6). Shown under every screen. No health data in it. -->
     <footer class="app-footer">
-      <details id="privacy">
+      <details id="privacy" class="panel">
         <summary>About your data</summary>
-        <div class="privacy-body">
+        <div class="panel-body privacy-body">
           <p><strong>What's collected:</strong> your setup answers (when your last period started, your typical cycle length, whether you use hormonal contraception, two questions about your usual patterns, your usual workout days and your goal), each check-in, the recommendation you got, and which button you tapped. No name, email or account: you're a random ID linked to your personal invite.</p>
           <p><strong>AI:</strong> to write your recommendation, your check-in answers and cycle day are sent to an AI model (through OpenRouter). Your ID and invite aren't sent.</p>
           <p><strong>Analytics:</strong> PostHog records page visits, a few button clicks and screen recordings so I can improve the app. Your health answers and recommendations are hidden in those recordings and are never sent to PostHog.</p>
@@ -356,6 +378,20 @@
       </details>
     </footer>
   </main>
+  <!-- "The science behind CycleSync": one copy, placed on the setup and home
+       screens by the app script. Plain language, only what research/evidence-brief.md
+       supports. No health data, so it's outside ph-no-capture. -->
+  <template id="science-template">
+    <details class="panel science">
+      <summary>ⓘ The science behind CycleSync</summary>
+      <div class="panel-body">
+        <p><strong>How you feel comes first.</strong> Research finds that cycle phase has only small effects on performance, and they vary a lot from woman to woman. So your energy, sleep, symptoms and soreness drive the recommendation.</p>
+        <p><strong>Your cycle is context, not a rule.</strong> Your cycle day and estimated phase are shown for context. CycleSync isn't designed to say a phase makes a workout better or worse.</p>
+        <p><strong>Safety rules always come first.</strong> Signs like very heavy bleeding or unusual pain are checked by fixed rules before any AI is used, and those rules override the AI.</p>
+        <p><strong>Not medical advice.</strong> CycleSync is a workout check-in, not a doctor. If something feels wrong, talk to a health professional.</p>
+      </div>
+    </details>
+  </template>
   <script src="analytics.js"></script>
   <script src="app.js"></script>
 </body>
