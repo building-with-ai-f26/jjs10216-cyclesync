@@ -167,10 +167,10 @@
     <section id="live-demo">
       <h2>Product Showcase (Prototype / Live App / 2-Min Video)</h2>
       <p>
-        <strong>Current Status:</strong> Build 2: a working local web app that gives real AI workout recommendations, with safety rules checked in code.<br />
-        <strong>Demo:</strong> A recommendation card from the Build 2 app:
+        <strong>Current Status:</strong> Build 3: live on Vercel for invited testers, with real AI recommendations, safety rules checked in code, and data saved in Supabase.<br />
+        <strong>Demo:</strong> A recommendation card from the Build 3 app (test data):
       </p>
-      <img src="images/cyclesync-card.png" alt="CycleSync recommendation card from the Build 2 app" style="display: block; width: 100%; max-width: 360px; height: auto; border: 1px solid var(--border); border-radius: 8px;" />
+      <img src="images/cyclesync-card-build3.png" alt="CycleSync recommendation card from the Build 3 app: Adjust, easy 3 miles instead of a 5-mile tempo run, with response buttons" style="display: block; width: 100%; max-width: 360px; height: auto; border: 1px solid var(--border); border-radius: 8px;" />
       <p class="meta" style="margin-top: 8px;">Earlier: <a href="assets/cyclesync-build1-demo.mp4">screen recording of the Build 1 Shortcut prototype</a>.</p>
       <p class="meta">Try the Build 1 Shortcut on your iPhone: <a href="https://www.icloud.com/shortcuts/f85a59d313df4b9d9ca19a87a014dd6d">https://www.icloud.com/shortcuts/f85a59d313df4b9d9ca19a87a014dd6d</a></p>
     </section>
@@ -178,7 +178,7 @@
     <!-- LIVING PRD (Updated every week!) -->
     <section id="prd">
       <h2>Living PRD (Product Requirements Document)</h2>
-      <p class="meta">Updated every week as we test with real users and learn what works.</p>
+      <p class="meta">Updated every week as we test with real users and learn what works. Sections 1–4 are PRD v2 (Build 2). Section 5 is PRD v3 (Build 3).</p>
 
       <h3>1. Target User & The Job to Be Done</h3>
       <p><strong>Who is this for?</strong> A woman in her 20s or 30s who works out 3–5 times a week, tracks her cycle, and plans her workouts ahead. First users: me, plus a few friends who match this profile.</p>
@@ -218,13 +218,13 @@
       <div class="grid-2">
         <div class="stat-box">
           <div class="stat-label">Cumulative Build Spend</div>
-          <div class="stat-value">$0.02 used</div>
-          <div class="meta">$5 OpenRouter credits bought, $0.02 used across 76 AI requests (Claude Pro already owned).</div>
+          <div class="stat-value">$0.03 used</div>
+          <div class="meta">$5 OpenRouter credits bought, $0.03 used so far ($0.02 in Build 2, $0.01 in Build 3). Vercel and Supabase are on free plans. Claude Pro already owned.</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Est. Cost Per User Run</div>
-          <div class="stat-value">≈ $0.0003</div>
-          <div class="meta">About $0.0003 per check-in (about 1 cent per user per month).</div>
+          <div class="stat-value">≈ $0.0004</div>
+          <div class="meta">About $0.0004 per check-in (about 1 cent per user per month).</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">User Evidence (Analytics from Build 2)</div>
@@ -238,6 +238,32 @@
       </div>
       <img src="images/posthog-dashboard.png" alt="PostHog dashboard for CycleSync: pageviews, clicks and check-in funnel events" style="display: block; width: 100%; height: auto; margin-top: 16px; border: 1px solid var(--border); border-radius: 8px;" />
       <p class="meta" style="margin-top: 8px;">PostHog dashboard for this page and the app.</p>
+
+      <h3>5. PRD v3 (Build 3): Hosting, Data, Access & Security</h3>
+      <p><strong>Hosting: Vercel (free plan).</strong> The app's <code>api/</code> folder already fit Vercel's format, so it went live without a rewrite. I didn't pick Render because its free plan sleeps after 15 minutes, which would make the first morning check-in slow. Pushing to <code>main</code> deploys the site, and a bad deploy can be rolled back in one click.</p>
+      <p><strong>Database: Supabase (free plan).</strong> On a host like Vercel, files the server writes disappear when it restarts, so check-ins need a real database. Every table has Row Level Security turned on. The page never writes to the database itself: only the app's server does, using a secret key that lives in Vercel's settings and never in the code. The free plan keeps no backups, so I export the tables by hand.</p>
+      <p><strong>Access: personal invite links instead of sign-in.</strong></p>
+      <ul>
+        <li><strong>Why:</strong> CycleSync stores sensitive health data, so each person's data has to be tied to them and kept from everyone else. Every check-in also costs real AI money, so an open site could be spammed and drain the spending cap.</li>
+        <li><strong>Turning a link off:</strong> links can be revoked one person at a time. On Nov 19 I revoked a link that was shared by mistake with one line.</li>
+        <li><strong>Who it's for:</strong> this is a private test with friends and my pod.</li>
+        <li><strong>Trade-off:</strong> some friction, like a lost link or a shared one.</li>
+        <li><strong>Rejected:</strong> an open site that only remembers you in the browser. There would be no way to turn one person off, your history would be gone on a new phone, and anyone could run up the bill.</li>
+        <li><strong>Before a public launch:</strong> it needs a real sign-in, like an email link or Sign in with Apple.</li>
+      </ul>
+      <p><strong>Security: all 7 class checks pass</strong> (details in <a href="https://github.com/building-with-ai-f26/jjs10216-cyclesync/blob/main/SECURITY.md">SECURITY.md</a>).</p>
+      <ul>
+        <li><strong>Locked tables:</strong> Row Level Security is on every table. A test that tries to read, add, change and delete in every table with the public key was refused every time (44 of 44).</li>
+        <li><strong>Secret keys stay on the server:</strong> a search of the code, all Git history and the live site found no real secrets.</li>
+        <li><strong>No stored files:</strong> the app stores no files, so there are no file links to protect.</li>
+        <li><strong>Production out of reach, with backups:</strong> my coding agent has no live database or Vercel keys, risky actions are on its "Ask me first" list, and I made a manual backup of all 5 tables.</li>
+        <li><strong>Spending limits:</strong> a $2 cap on the live AI key. Each invite gets a limit on AI check-ins (5 per 10 minutes, 20 per day) and on every route that saves data (30 per 10 minutes, 100 per day). A safety message is never blocked by a limit.</li>
+        <li><strong>Dependencies:</strong> the app uses no npm packages, and <code>npm audit</code> found 0 vulnerabilities.</li>
+        <li><strong>Attack, then fix:</strong> a script attacks the live site the way an outsider would (no invite, someone else's invite, odd input, floods of requests). The latest run passed 33 of 33. An earlier review found that huge requests weren't refused on Vercel; that's fixed.</li>
+      </ul>
+      <p><strong>Privacy:</strong> analytics never record health answers. Session replay hides the health screens and the recommendation card. All tester data is deleted at the end of the semester.</p>
+      <p><strong>Design:</strong> after testing on my own phone, the app got a new sage and plum look. Going back to a question you already answered now shows a button to move on, so you're never stuck. A short "The science behind CycleSync" panel explains how recommendations work.</p>
+      <p><strong>Architecture (Build 3):</strong> [Invite link] → [Check-in web app on Vercel] → [Server: invite check, rate limits, safety rules in code first] → [Claude Haiku 5.5 via OpenRouter] → [Code checks, retry, rule-based fallback] → [Card + response saved in Supabase]</p>
     </section>
 
     <!-- WEEKLY BUILD LOG (Updated at least twice a week via Git commits) -->
@@ -277,9 +303,11 @@
       <div class="log-entry">
         <h3>Build 3 · Build.exe: The Core Workflow (Due Nov 23)</h3>
         <ul>
-          <li><strong>What shipped:</strong> [End-to-end workflow working with real inputs + PostHog funnel events]</li>
-          <li><strong>What broke / changed in PRD:</strong> [Fill in]</li>
-          <li><strong>Cost & time this week:</strong> $[0.00] · [0] hours</li>
+          <li><strong>What shipped:</strong> CycleSync is live on Vercel with data saved in Supabase. Testers get personal invite links. There are rate limits on AI check-ins and on every route that saves data, a privacy note, security headers, and a security audit where all 7 class checks pass (<a href="https://github.com/building-with-ai-f26/jjs10216-cyclesync/blob/main/SECURITY.md">SECURITY.md</a>). Also a design pass: the sage and plum look, quieter check-in screens, and the science panel.</li>
+          <li><strong>Things learned with AI:</strong> Why a live app needs a real database (files a server writes can disappear); how Row Level Security and a server-only secret key keep data private; why a public app with paid AI needs access control and rate limits; and how to test security by trying to break in, not just by reading the code.</li>
+          <li><strong>More lessons:</strong> Real users find bugs on day one. My first friend found the stuck-link problem the morning she started. Re-reading the assignment page mid-week caught four things I'd missed: my own backup, limits on every save, a full key search, and links for my pod.</li>
+          <li><strong>What broke / changed in PRD:</strong> I shared my own invite link with a friend by mistake. I revoked it with one line and sent new links. Then my phone got stuck on the old account and showed "Could not reach the server." I found and fixed both the same day (Nov 19), with tests: a new link now always replaces the saved one, and a turned-off link shows its own clear message. PRD v3 (section 5 above) covers hosting, the database, invite links and security.</li>
+          <li><strong>Cost & time this week:</strong> $0.01 AI usage (Vercel and Supabase are free) · about 8 hours (Nov 17 about 3, Nov 18 about 2, Nov 19 about 2, Nov 20 about 1)</li>
         </ul>
       </div>
 
