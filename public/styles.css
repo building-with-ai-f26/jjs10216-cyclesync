@@ -80,6 +80,8 @@ input:focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
   appearance: none;
   text-align: left;
 }
+/* iPhone Safari centres the picked date unless this inner part is aligned too */
+.date-wrap input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .date-placeholder {
   position: absolute;
   left: 13px;

@@ -226,7 +226,8 @@ function renderContext() {
   $('no-phase-note').hidden = !usesHormonal();
 
   const usualDay = profile.workoutDays.includes(WEEKDAY_KEYS[now.getDay()]);
-  $('workout-day').hidden = !usualDay;
+  $('workout-day').dataset.usual = String(usualDay);
+  $('workout-day').hidden = !usualDay || checkinStarted;
   $('workout-day').textContent = `${weekday} is one of your usual workout days.`;
 
   renderPeriodBox();
@@ -422,9 +423,10 @@ function renderStep() {
   // "Edit my setup", "Update my cycle" and the science panel only before the check-in starts.
   $('home-links').hidden = checkinStarted || index !== 0;
   $('home-science').hidden = $('home-links').hidden;
+  $('workout-day').hidden = $('home-links').hidden || $('workout-day').dataset.usual !== 'true';
 
   // Coming back to a tap-to-answer question she already answered: show
-  // "Continue" so she isn't stuck. (Steps with their own Next button don't need it.)
+  // "Next" so she isn't stuck. (Steps with their own Next button don't need it.)
   const stepEl = checkinForm.querySelector(`.step[data-step="${currentStep}"]`);
   const hasOwnButton = !!stepEl.querySelector('[data-next], [type="submit"]');
   $('step-continue').hidden = hasOwnButton || !isAnswered(currentStep);
@@ -474,6 +476,7 @@ checkinForm.addEventListener('change', (event) => {
     checkinStarted = true;
     $('home-links').hidden = true;
     $('home-science').hidden = true;
+    $('workout-day').hidden = true;
     track('checkin_started');
   }
 

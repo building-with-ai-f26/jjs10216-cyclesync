@@ -247,7 +247,9 @@ try {
   check('5 progress dots on the first question (cramps day)', (await js(`return document.querySelectorAll('#dots span').length`)) === 5);
   check('progress dots line up with the text (same left edge as the heading)',
     await js(`return Math.abs(document.getElementById('dots').getBoundingClientRect().left - document.getElementById('greeting').getBoundingClientRect().left) < 1`));
-  check('"Continue" hidden on a question not answered yet', !(await isShown('step-continue')));
+  check('every step button says "Next" except the last, "Get my recommendation"',
+    (await js(`return [...document.querySelectorAll('#checkin-form .next-btn')].map((b) => b.type === 'submit' ? 'submit:' + b.textContent.trim() : b.textContent.trim()).filter((t) => t !== 'Next').join(',')`)) === 'submit:Get my recommendation');
+  check('"Next" (step-continue) hidden on a question not answered yet', !(await isShown('step-continue')));
   check('science panel on the home screen, closed', await js(`const d = document.querySelector('.science-slot[data-screen="home"] details'); return !!d && !d.open && d.offsetParent !== null`));
   // Tap targets ≥ 44px and form text ≥ 16px (iPhone Safari zooms in below 16px)
   const small = await js(`return [...document.querySelectorAll('#screen-checkin button, #screen-checkin .chip span, #screen-checkin input[type=number], summary')]
@@ -259,6 +261,7 @@ try {
   await tap('crampsToday', 'yes');
   check('after the first answer: "Edit my setup" and "Update my cycle" are hidden', !(await isShown('edit-setup')) && !(await isShown('update-cycle')));
   check('after the first answer: the science panel is hidden', !(await isShown('home-science')));
+  check('after the first answer: the usual-workout-day line is hidden', !(await isShown('workout-day')));
   check('"Yes" → asks if the cramps are unusual', (await visibleStep()) === 'crampsCheck', await visibleStep());
   check('it asks the new cramps question with "Yes" / "No, it\'s my usual"',
     (await js(`const s = document.querySelector('[data-step="crampsCheck"]'); return s.querySelector('.step-q').textContent.trim() + ' | ' + [...s.querySelectorAll('.chip span')].map((x) => x.textContent).join(' / ')`)) === `Are these cramps worse than your usual, not helped by pain relief, or coming with fever or vomiting? | Yes / No, it's my usual`);
@@ -276,10 +279,10 @@ try {
   check('5 dots, second one on (run follow-ups share the Workout dot)',
     JSON.stringify(await js(`return [document.querySelectorAll('#dots span').length, [...document.querySelectorAll('#dots span')].findIndex((d) => d.className === 'on')]`)) === '[5,1]');
   await click('step-back');
-  check('back to an answered tap-to-answer question → "Continue" shows', (await visibleStep()) === 'runKind' && (await isShown('step-continue')));
+  check('back to an answered tap-to-answer question → "Next" shows', (await visibleStep()) === 'runKind' && (await isShown('step-continue')) && (await text('step-continue')) === 'Next');
   await shot('2b-back-continue');
   await click('step-continue');
-  check('"Continue" → next question, answer kept', (await visibleStep()) === 'energy' && (await isChecked('runKind', 'tempo')), await visibleStep());
+  check('"Next" → next question, answer kept', (await visibleStep()) === 'energy' && (await isChecked('runKind', 'tempo')), await visibleStep());
   await shot('2-energy');
   await tap('energy', '2');
   check('→ sleep', (await visibleStep()) === 'sleep', await visibleStep());
@@ -330,7 +333,7 @@ try {
   console.log('\n— Update my cycle —');
   await click('safety-back');
   check('back to a fresh check-in', (await visibleStep()) === 'crampsFirst', await visibleStep());
-  check('fresh check-in: "Edit my setup", "Update my cycle" and the science panel show again', (await isShown('edit-setup')) && (await isShown('update-cycle')) && (await isShown('home-science')));
+  check('fresh check-in: "Edit my setup", "Update my cycle", the science panel and the workout-day line show again', (await isShown('edit-setup')) && (await isShown('update-cycle')) && (await isShown('home-science')) && (await isShown('workout-day')));
   await click('update-cycle');
   check('"Update my cycle" opens its screen', await isShown('screen-cycle'));
   const summary = await text('cycle-summary');
