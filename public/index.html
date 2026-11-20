@@ -35,7 +35,7 @@
     <!-- ONBOARDING (once). "ph-no-capture" hides health answers from PostHog replays and click tracking. -->
     <section id="screen-onboarding" hidden>
       <h1>Let's set you up</h1>
-      <p class="muted">A few questions, once. Your answers stay anonymous.</p>
+      <p class="muted">A few questions, once. Your answers stay private.</p>
       <div class="science-slot" data-screen="setup"></div>
 
       <form id="onboarding-form" class="ph-no-capture" novalidate>
@@ -298,11 +298,12 @@
         <p id="checkin-error" class="error" role="alert" hidden></p>
       </form>
 
-      <div class="footer-links">
+      <!-- These links and the science panel below: only on the home screen, before her first answer -->
+      <div id="home-links" class="footer-links">
         <button type="button" id="edit-setup" class="btn btn-secondary">Edit my setup</button>
         <button type="button" id="update-cycle" class="btn btn-secondary">Update my cycle</button>
       </div>
-      <div class="science-slot" data-screen="home"></div>
+      <div id="home-science" class="science-slot" data-screen="home"></div>
     </section>
 
     <!-- UPDATE MY CYCLE: log an early period, or correct the last start date -->

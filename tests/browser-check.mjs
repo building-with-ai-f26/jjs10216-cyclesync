@@ -233,9 +233,12 @@ try {
   const hello = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   check(`greeting is "${hello}"`, (await text('greeting')) === hello, await text('greeting'));
   check(`context reads "${WEEKDAY} · Day 4 · est. menstrual"`, (await text('context-text')) === `${WEEKDAY} · Day 4 · est. menstrual`, await text('context-text'));
-  check('phase line shows; estimate note hidden until ⓘ is tapped', (await isShown('phase-info')) && !(await isShown('estimate-note')));
+  check('estimate note and phase explanation hidden until ⓘ is tapped', !(await isShown('phase-info')) && !(await isShown('estimate-note')));
   await click('info-toggle');
-  check('tapping ⓘ shows the estimate note', await isShown('estimate-note'));
+  check('tapping ⓘ shows the estimate note and the phase explanation', (await isShown('estimate-note')) && (await isShown('phase-info')));
+  await shot('1a-info-open');
+  await click('info-toggle');
+  check('tapping ⓘ again hides them', !(await isShown('estimate-note')) && !(await isShown('phase-info')));
   check('usual-workout-day line shows', (await text('workout-day')) === `${WEEKDAY} is one of your usual workout days.`, await text('workout-day'));
   check('during her period: NO "has your period started" prompt', !(await isShown('period-box')));
   check('"Set today as day 1?" never shows on its own', !(await isShown('period-confirm')));
@@ -254,6 +257,8 @@ try {
 
   check('first question: "Any cramps today?"', (await visibleStep()) === 'crampsFirst', await visibleStep());
   await tap('crampsToday', 'yes');
+  check('after the first answer: "Edit my setup" and "Update my cycle" are hidden', !(await isShown('edit-setup')) && !(await isShown('update-cycle')));
+  check('after the first answer: the science panel is hidden', !(await isShown('home-science')));
   check('"Yes" → asks if the cramps are unusual', (await visibleStep()) === 'crampsCheck', await visibleStep());
   check('it asks the new cramps question with "Yes" / "No, it\'s my usual"',
     (await js(`const s = document.querySelector('[data-step="crampsCheck"]'); return s.querySelector('.step-q').textContent.trim() + ' | ' + [...s.querySelectorAll('.chip span')].map((x) => x.textContent).join(' / ')`)) === `Are these cramps worse than your usual, not helped by pain relief, or coming with fever or vomiting? | Yes / No, it's my usual`);
@@ -325,6 +330,7 @@ try {
   console.log('\n— Update my cycle —');
   await click('safety-back');
   check('back to a fresh check-in', (await visibleStep()) === 'crampsFirst', await visibleStep());
+  check('fresh check-in: "Edit my setup", "Update my cycle" and the science panel show again', (await isShown('edit-setup')) && (await isShown('update-cycle')) && (await isShown('home-science')));
   await click('update-cycle');
   check('"Update my cycle" opens its screen', await isShown('screen-cycle'));
   const summary = await text('cycle-summary');
@@ -341,6 +347,7 @@ try {
   check(`correcting the date → "${WEEKDAY} · Day 6 · est. follicular"`, (await text('context-text')) === `${WEEKDAY} · Day 6 · est. follicular`, await text('context-text'));
   check('confirmation: "Saved. Today is day 6."', (await text('cycle-message')) === 'Saved. Today is day 6.', await text('cycle-message'));
   check('not a period day any more → starts with the workout question', (await visibleStep()) === 'workout', await visibleStep());
+  check('"Update my cycle" still shows after saving a date', await isShown('update-cycle'));
   await click('update-cycle');
   await click('cycle-today');
   check('"Today" fills in today\'s date', (await js(`return document.getElementById('cycleStart').value`)) === iso(0));
@@ -435,6 +442,7 @@ try {
   await submit();
   check('verdict "Adjust"', (await text('result-verdict')) === 'Adjust', await text('result-verdict'));
   check('headline "Easy 3 miles instead of your 5-mile tempo run"', (await text('result-headline')) === 'Easy 3 miles instead of your 5-mile tempo run', await text('result-headline'));
+  check('"5-mile" can\'t break across lines', (await js(`return [...document.querySelectorAll('#result-headline .nowrap')].map((s) => s.textContent).join(',')`)) === '5-mile');
   check('a tip shows', await isShown('result-tip'));
   check('ADJUST card: all four buttons, including "Original plan"', (await visibleButtons()) === 'Do this / Original plan / Something else / Rest', await visibleButtons());
   const adjRows = await rows();
@@ -556,6 +564,7 @@ try {
   await cdp('Page.navigate', { url: `${BASE}/?code=${CODE}` });
   await waitFor(() => isShown('screen-onboarding'));
   check('a new visitor with her invite link sees onboarding', await isShown('screen-onboarding'));
+  check('setup says "Your answers stay private."', await js(`return document.querySelector('#screen-onboarding .muted').textContent.includes('Your answers stay private.')`));
   await shot('0-setup');
   check('setup: empty date field shows "Tap to pick a date"', await js(`const p = document.querySelector('#screen-onboarding .date-placeholder'); return p.textContent === 'Tap to pick a date' && getComputedStyle(p).display !== 'none'`));
   check('setup: science panel shows, closed', await js(`const d = document.querySelector('.science-slot[data-screen="setup"] details'); return !!d && !d.open && d.offsetParent !== null`));

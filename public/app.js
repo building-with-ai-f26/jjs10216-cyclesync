@@ -218,7 +218,8 @@ function renderContext() {
   $('info-toggle').setAttribute('aria-expanded', 'false');
   $('estimate-note').hidden = true;
   $('estimate-note').textContent = cycle.estimateNote ?? '';
-  $('phase-info').hidden = !cycle.phaseInfo;
+  // The estimate note and the phase explanation stay behind the ⓘ until tapped.
+  $('phase-info').hidden = true;
   $('phase-info').textContent = cycle.phaseInfo ?? '';
   // With hormonal birth control (or "prefer not to say") no phase is shown,
   // so one line says why and it doesn't look broken.
@@ -234,6 +235,7 @@ function renderContext() {
 $('info-toggle').addEventListener('click', () => {
   const open = $('estimate-note').hidden;
   $('estimate-note').hidden = !open;
+  $('phase-info').hidden = !open || !cycle.phaseInfo;
   $('info-toggle').setAttribute('aria-expanded', String(open));
 });
 
@@ -417,6 +419,9 @@ function renderStep() {
     }),
   );
   $('step-back').disabled = index === 0;
+  // "Edit my setup", "Update my cycle" and the science panel only before the check-in starts.
+  $('home-links').hidden = checkinStarted || index !== 0;
+  $('home-science').hidden = $('home-links').hidden;
 
   // Coming back to a tap-to-answer question she already answered: show
   // "Continue" so she isn't stuck. (Steps with their own Next button don't need it.)
@@ -467,6 +472,8 @@ checkinForm.addEventListener('change', (event) => {
   // Her first answer in this check-in.
   if (!checkinStarted) {
     checkinStarted = true;
+    $('home-links').hidden = true;
+    $('home-science').hidden = true;
     track('checkin_started');
   }
 
@@ -641,6 +648,17 @@ const RESPONSE_SAVED = {
 let currentCheckinId = null;
 let currentWorkoutType = null; // run / strength / class / walk_yoga, for analytics
 
+// Put text in an element, keeping hyphenated words ("5-mile") on one line.
+function setNoBreakHyphens(el, text) {
+  el.replaceChildren(...text.split(/(\S+-\S+)/).filter(Boolean).map((part) => {
+    if (!/\S-\S/.test(part)) return document.createTextNode(part);
+    const span = document.createElement('span');
+    span.className = 'nowrap';
+    span.textContent = part;
+    return span;
+  }));
+}
+
 // Fills the card from the server's answer. Text only (textContent, never HTML).
 // If the AI's answer failed the checks twice, the server sends the safe
 // fallback: no verdict, just the message as the headline.
@@ -653,7 +671,7 @@ function showResult({ checkinId, recommendation: rec, cycle: c }) {
   verdict.hidden = !rec.verdict;
   verdict.textContent = VERDICT_LABELS[rec.verdict] ?? '';
   verdict.className = `verdict verdict-${(rec.verdict ?? '').toLowerCase()}`;
-  $('result-headline').textContent = rec.headline;
+  setNoBreakHyphens($('result-headline'), rec.headline);
   for (const [id, value] of [['result-prescription', rec.prescription], ['result-reason', rec.reason], ['result-tip', rec.extra_tip]]) {
     $(id).textContent = value ?? '';
     $(id).hidden = !value;

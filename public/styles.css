@@ -399,6 +399,7 @@ input:focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
 }
 .rec-card.rec-rest { background: var(--plum-tint); border-color: #E2CFDA; }
 .rec-card h1 { margin: 12px 0 10px; font-size: 22px; line-height: 1.25; }
+.nowrap { white-space: nowrap; }
 .verdict {
   display: inline-block;
   padding: 3px 12px;
