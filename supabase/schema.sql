@@ -137,6 +137,45 @@ revoke execute on function public.take_ai_slot(uuid) from public, anon, authenti
 grant  execute on function public.take_ai_slot(uuid) to service_role;
 
 -- ============================================================
+-- 4b. Rate limit on every route that saves data: take_write_slot(invite_id, route)
+--
+-- Added Nov 19 and run on its own in the SQL Editor (safe to run again).
+-- Called by the server BEFORE each save (onboarding, check-in, response,
+-- period). Same steps as take_ai_slot: lock, check the invite, count, record.
+-- Returns 'ok', or why not: 'invalid_invite', 'writes_10_min', 'writes_day'.
+-- Limits: 30 saves per 10 minutes and 100 per day per invite.
+-- Same rules as takeWriteSlot() in lib/db-local.js.
+-- ============================================================
+
+create table if not exists public.write_calls (
+  id         uuid primary key default gen_random_uuid(),
+  invite_id  uuid not null references public.invites (id) on delete cascade,
+  route      text not null check (route in ('onboarding','checkin','response','period')),
+  created_at timestamptz not null default now()
+);
+create index if not exists write_calls_invite_idx on public.write_calls (invite_id, created_at);
+alter table public.write_calls enable row level security;
+revoke all on table public.write_calls from public, anon, authenticated;
+grant select, insert, delete on table public.write_calls to service_role;
+
+create or replace function public.take_write_slot(p_invite_id uuid, p_route text)
+returns text language plpgsql security invoker set search_path = '' as $$
+begin
+  perform pg_advisory_xact_lock(hashtext('cyclesync.take_write_slot'));
+  if not exists (select 1 from public.invites where id = p_invite_id and revoked_at is null) then
+    return 'invalid_invite';
+  end if;
+  if (select count(*) from public.write_calls where invite_id = p_invite_id
+        and created_at > now() - interval '10 minutes') >= 30 then return 'writes_10_min'; end if;
+  if (select count(*) from public.write_calls where invite_id = p_invite_id
+        and created_at > now() - interval '24 hours') >= 100 then return 'writes_day'; end if;
+  insert into public.write_calls (invite_id, route) values (p_invite_id, p_route);
+  return 'ok';
+end; $$;
+revoke execute on function public.take_write_slot(uuid, text) from public, anon, authenticated;
+grant  execute on function public.take_write_slot(uuid, text) to service_role;
+
+-- ============================================================
 -- 5. Quick self-check: run these lines on their own after the script.
 --    Every row should show rls_enabled = true, and the second query
 --    should return NO rows (no access for anon or authenticated).
@@ -156,4 +195,4 @@ grant  execute on function public.take_ai_slot(uuid) to service_role;
 --    NOT run by this script. Copy and run it on its own when the time comes.
 -- ============================================================
 --
--- truncate public.ai_calls, public.checkins, public.profiles, public.invites;
+-- truncate public.write_calls, public.ai_calls, public.checkins, public.profiles, public.invites;

@@ -513,13 +513,16 @@ try {
   const busy = '99999999-9999-4999-8999-999999999999';
   await makeUser(busy, { ...BASE_PROFILE, lastPeriodStart: iso(-9) });
   const quick = { workout: { type: 'walk_yoga' }, energy: 3, sleep: 'ok', symptoms: ['none'], soreness: null };
-  const statuses = await Promise.all(Array.from({ length: 30 }, () => fetch(`${BASE}/api/checkin`, {
+  // Setup + 20 check-ins = 21 saves, under the save limit (30 per 10 minutes),
+  // so this tests the AI limit (5 per 10 minutes).
+  const rapid = (count) => Promise.all(Array.from({ length: count }, () => fetch(`${BASE}/api/checkin`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-invite-code': userCodes[busy] },
     body: JSON.stringify({ userId: busy, today: iso(0), checkin: quick }),
   }).then((r) => r.status)));
-  check('30 rapid check-ins → 5 get through, 25 refused with 429',
-    statuses.filter((x) => x === 200).length === 5 && statuses.filter((x) => x === 429).length === 25, statuses.join(','));
+  const statuses = await rapid(20);
+  check('20 rapid check-ins → 5 get through, 15 refused with 429',
+    statuses.filter((x) => x === 200).length === 5 && statuses.filter((x) => x === 429).length === 15, statuses.join(','));
   await openAs(busy);
   await tap('workoutType', 'walk_yoga');
   await tap('energy', '3');
@@ -529,6 +532,11 @@ try {
   await waitFor(() => isShown('checkin-error'));
   check('the 6th, from the screen, shows "try again in a few minutes"', (await text('checkin-error')) === "You've checked in a lot just now. Try again in a few minutes.", await text('checkin-error'));
   await shot('rate-limited');
+  // Past 30 saves in 10 minutes: the save limit (every route that writes data)
+  await rapid(9);
+  await js(`document.querySelector('#checkin-form button[type="submit"]').click()`);
+  await waitFor(async () => (await text('checkin-error')).startsWith("You've made"));
+  check('past 30 saves in 10 minutes, the screen shows the save-limit message', (await text('checkin-error')) === "You've made a lot of changes just now. Try again in a few minutes.", await text('checkin-error'));
 
   // ===== 6. Invite links and new visitors =====
   console.log('\n— Invite links —');

@@ -1,8 +1,10 @@
 // POST /api/period  { userId, date }  → "My period started" (updates her last period start)
+// Needs a valid invite code. Rate limited (lib/rate-limit.js).
 import { readJson } from '../lib/request.js';
 import { getProfile, updatePeriodStart } from '../lib/db.js';
 import { isValidUserId, isValidPeriodDate } from '../lib/profile.js';
 import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invites.js';
+import { limitWrite } from '../lib/rate-limit.js';
 
 export async function POST(request) {
   const invite = await inviteFor(request);
@@ -16,6 +18,8 @@ export async function POST(request) {
   if (!existing) return error(400, 'Please finish setup first.');
   if (!(await ownsProfile(existing, invite, body.userId))) return otherInvite();
 
+  const limited = await limitWrite(request, invite.id, 'period');
+  if (limited) return limited;
   const profile = await updatePeriodStart(body.userId, body.date);
   if (!profile) return error(400, 'Please finish setup first.');
   return Response.json({ ok: true, lastPeriodStart: profile.lastPeriodStart });

@@ -5,6 +5,7 @@ import { readJson } from '../lib/request.js';
 import { getProfile, saveProfile } from '../lib/db.js';
 import { isValidUserId, validateProfile } from '../lib/profile.js';
 import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invites.js';
+import { limitWrite } from '../lib/rate-limit.js';
 
 export async function GET(request) {
   const invite = await inviteFor(request);
@@ -31,6 +32,8 @@ export async function POST(request) {
   const existing = await getProfile(body.userId);
   if (existing && !(await ownsProfile(existing, invite, body.userId))) return otherInvite();
 
+  const limited = await limitWrite(request, invite.id, 'onboarding');
+  if (limited) return limited;
   const profile = await saveProfile(body.userId, result.profile, invite.id);
   return Response.json({ ok: true, profile });
 }

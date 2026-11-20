@@ -15,7 +15,7 @@
 // is checked before any row is looked at, so a refusal here proves the lock.
 // If an attempt ever succeeds, the script says FAIL and what to clean up.
 
-const TABLES = ['invites', 'profiles', 'checkins', 'ai_calls'];
+const TABLES = ['invites', 'profiles', 'checkins', 'ai_calls', 'write_calls'];
 const NO_SUCH_ID = '00000000-0000-4000-8000-000000000000';
 
 // Dummy rows that satisfy each table's columns, so a refusal can't be
@@ -25,6 +25,7 @@ const DUMMY_ROWS = {
   profiles: { user_id: NO_SUCH_ID, invite_id: NO_SUCH_ID, data: { securityTest: true } },
   checkins: { user_id: NO_SUCH_ID, invite_id: NO_SUCH_ID, checkin_date: '2026-11-17', source: 'security-test', data: { securityTest: true } },
   ai_calls: { invite_id: NO_SUCH_ID },
+  write_calls: { invite_id: NO_SUCH_ID, route: 'checkin' },
 };
 
 const url = process.env.SUPABASE_URL?.replace(/\/+$/, '');
@@ -77,6 +78,7 @@ for (const withKey of [true, false]) {
     results.push(await attempt(`${who}: delete from ${table}`, `/rest/v1/${table}?${filter}`, { method: 'DELETE', withKey }));
   }
   results.push(await attempt(`${who}: run take_ai_slot`, '/rest/v1/rpc/take_ai_slot', { method: 'POST', body: { p_invite_id: NO_SUCH_ID }, withKey }));
+  results.push(await attempt(`${who}: run take_write_slot`, '/rest/v1/rpc/take_write_slot', { method: 'POST', body: { p_invite_id: NO_SUCH_ID, p_route: 'checkin' }, withKey }));
 }
 
 let failed = 0;

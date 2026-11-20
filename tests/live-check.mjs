@@ -7,9 +7,10 @@
 // Part 2 needs two TEST invites (never a friend's), passed in the environment:
 //   LIVE_INVITE_A=... LIVE_INVITE_B=... npm run test:live
 // It makes a new anonymous test user with invite A, checks that invite B
-// can't reach it, tries odd input, then fires 30 check-ins at once.
-// Cost: the 5 check-ins the rate limit lets through use the real AI
-// (about $0.001 in total). The other 25 never reach it.
+// can't reach it, tries odd input, then fires 20 check-ins at once (AI limit).
+// Invite B then sets up its own user and makes 30 period updates at once (save limit).
+// Cost: the 5 check-ins the AI limit lets through use the real AI
+// (about $0.001 in total). The other 15 never reach it.
 // Codes are never printed. Revoke both test invites afterwards (SQL printed at the end).
 
 import { randomUUID } from 'node:crypto';
@@ -120,12 +121,14 @@ if (!A || !B) {
   const notMine = await call('GET', `/api/onboarding?userId=../../etc/passwd`, { code: A });
   check('a path instead of a user ID → 400', notMine.status === 400, notMine.status);
 
-  console.log('\n— Rate limit: 30 check-ins at once —');
-  const results = await Promise.all(Array.from({ length: 30 }, () => call('POST', '/api/checkin', { code: A, body: { userId: user, today, checkin } })));
+  // 20, not 30: setup + 20 check-ins stays under the save limit (30 per 10 min),
+  // so this measures the AI limit (5 per 10 min).
+  console.log('\n— AI rate limit: 20 check-ins at once —');
+  const results = await Promise.all(Array.from({ length: 20 }, () => call('POST', '/api/checkin', { code: A, body: { userId: user, today, checkin } })));
   const ok = results.filter((r) => r.status === 200);
   const limited = results.filter((r) => r.status === 429);
   check('exactly 5 get through', ok.length === 5, ok.length);
-  check('the other 25 get 429', limited.length === 25, `${limited.length} (statuses: ${results.map((r) => r.status).join(',')})`);
+  check('the other 15 get 429', limited.length === 15, `${limited.length} (statuses: ${results.map((r) => r.status).join(',')})`);
   check('the 429 message is the friendly one', limited[0]?.data?.error === "You've checked in a lot just now. Try again in a few minutes.", limited[0]?.data?.error);
   const card = ok[0]?.data?.recommendation;
   check('the ones that got through have a recommendation card', !!card?.verdict, JSON.stringify(ok[0]?.data).slice(0, 120));
@@ -135,6 +138,17 @@ if (!A || !B) {
   check('invite B can\'t answer A\'s card → 403', (await call('POST', '/api/response', { code: B, body: { userId: user, checkinId, response: 'rest' } })).status === 403);
   const answered = await call('POST', '/api/response', { code: A, body: { userId: user, checkinId, response: 'do_this' } });
   check('invite A can → 200, saved', answered.status === 200 && answered.data?.response === 'do_this', answered.status);
+
+  // Save limit (every route that saves data): invite B sets up its own user,
+  // then 30 period updates at once. Setup + 29 fit in 30 per 10 minutes. No AI.
+  console.log('\n— Save limit: setup + 30 period updates at once —');
+  const userB = randomUUID();
+  check('invite B can set up its own user', (await call('POST', '/api/onboarding', { code: B, body: { userId: userB, profile } })).status === 200);
+  const saves = await Promise.all(Array.from({ length: 30 }, () => call('POST', '/api/period', { code: B, body: { userId: userB, date: today } })));
+  const saved = saves.filter((r) => r.status === 200).length;
+  const refused = saves.filter((r) => r.status === 429);
+  check('exactly 29 get through, 1 gets 429', saved === 29 && refused.length === 1, `${saved} ok, ${refused.length} refused`);
+  check('the 429 message is the save-limit one', refused[0]?.data?.error === "You've made a lot of changes just now. Try again in a few minutes.", refused[0]?.data?.error);
 
   console.log(`\nIn Supabase → Table Editor, the test user's rows have user_id ${user}.`);
 }

@@ -4,6 +4,7 @@
 //   - A safety rule fires → { ok, checkinId, safety: [{ rule, message }] }. The AI never runs.
 //   - Otherwise           → { ok, checkinId, recommendation, cycle: { cycleDay, phase } }
 //   - Over the rate limit → 429 { error }. Nothing saved, no AI call.
+//     (Over the save limit, a safety message still shows; it just isn't saved.)
 import { readJson } from '../lib/request.js';
 import { getProfile } from '../lib/db.js';
 import { isValidUserId } from '../lib/profile.js';
@@ -11,6 +12,7 @@ import { validateCheckin } from '../lib/checkin.js';
 import { isValidToday } from '../lib/cycle.js';
 import { runCheckin } from '../lib/pipeline.js';
 import { inviteFor, inviteRequired, otherInvite, ownsProfile } from '../lib/invites.js';
+import { WRITE_LIMIT_MESSAGES } from '../lib/rate-limit.js';
 
 export async function POST(request) {
   const invite = await inviteFor(request);
@@ -32,8 +34,10 @@ export async function POST(request) {
   return Response.json({ ok: true, ...outcome });
 }
 
-// Rate limit (Plan.md B3-5): 5 per 10 minutes and 20 per day per invite, 300 per day overall.
+// Rate limits: AI check-ins (Plan.md B3-5): 5 per 10 minutes and 20 per day per
+// invite, 300 per day overall. Saves (lib/rate-limit.js): 30 per 10 minutes, 100 per day.
 export const RATE_LIMIT_MESSAGES = {
+  ...WRITE_LIMIT_MESSAGES,
   per_10_min: "You've checked in a lot just now. Try again in a few minutes.",
   per_day: "You've reached today's check-in limit. Try again tomorrow.",
   global_day: 'CycleSync has reached its limit for today. Please try again tomorrow.',
